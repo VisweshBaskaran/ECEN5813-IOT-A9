@@ -40,9 +40,11 @@
 // to determine the correct values for these.
 // If these links have gone bad, consult the reference manual and/or the datasheet for the MCU.
 // Change to correct port and pins:
-#define LED_port   (0) 
-#define LED0_pin   (0)
-#define LED1_pin   (0)
+
+//https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
+#define LED_port   (gpioPortF)
+#define LED0_pin   (4)
+#define LED1_pin   (5)
 
 
 
@@ -53,8 +55,8 @@ void gpioInit()
 
     // Set the port's drive strength. In this MCU implementation, all GPIO cells
     // in a "Port" share the same drive strength setting. 
-	//GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthStrongAlternateStrong); // Strong, 10mA
-	GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
+	GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthStrongAlternateStrong); // Strong, 10mA
+	//GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
 	
 	// Set the 2 GPIOs mode of operation
 	GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
