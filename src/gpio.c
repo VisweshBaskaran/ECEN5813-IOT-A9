@@ -14,9 +14,9 @@
 
  *
  * Student edit: Add your name and email address here:
- * @student    Awesome Student, Awesome.Student@Colorado.edu
+ * @student   Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
- 
+ * @reference 1) To access port: https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
  */
 
 
@@ -26,9 +26,6 @@
 // For any new GPIO function you create, place that function in this file.
 // *****************************************************************************
 
-#include <stdbool.h>
-#include "em_gpio.h"
-#include <string.h>
 
 #include "gpio.h"
 
@@ -41,7 +38,7 @@
 // If these links have gone bad, consult the reference manual and/or the datasheet for the MCU.
 // Change to correct port and pins:
 
-//https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
+// Reference [1]
 #define LED_port   (gpioPortF)
 #define LED0_pin   (4)
 #define LED1_pin   (5)
@@ -88,7 +85,6 @@ void gpioLed1SetOff()
 {
 	GPIO_PinOutClear(LED_port, LED1_pin);
 }
-
 
 
 

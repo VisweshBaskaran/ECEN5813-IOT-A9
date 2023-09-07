@@ -48,6 +48,20 @@
 #ifndef APP_H
 #define APP_H
 
+
+/*
+ * Header files
+ */
+
+#include "em_common.h"
+#include "app_assert.h"
+#include "sl_bluetooth.h"
+#include "gatt_db.h"
+#include "sl_status.h"             // for sl_status_print()
+#include "src/ble_device_type.h"
+#include "src/gpio.h"
+#include "src/lcd.h"
+
 /**************************************************************************//**
  * Application Init.
  *****************************************************************************/

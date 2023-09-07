@@ -30,7 +30,10 @@
 #define SRC_GPIO_H_
 
 
-
+//Header files
+#include <stdbool.h>
+#include "em_gpio.h"
+#include <string.h>
 
 // Function prototypes
 void gpioInit();

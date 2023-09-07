@@ -36,15 +36,12 @@
  *
  *
  * Student edit: Add your name and email address here:
- * @student    Awesome Student, Awesome.Student@Colorado.edu
+ * @student    Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
  *
  *
  ******************************************************************************/
-#include "em_common.h"
-#include "app_assert.h"
-#include "sl_bluetooth.h"
-#include "gatt_db.h"
+
 #include "app.h"
 
 
@@ -54,11 +51,7 @@
 //           assignment.
 // *************************************************
 
-#include "sl_status.h"             // for sl_status_print()
 
-#include "src/ble_device_type.h"
-#include "src/gpio.h"
-#include "src/lcd.h"
 
 
 // Students: Here is an example of how to correctly include logging functions in
@@ -71,9 +64,6 @@
 // Include logging specifically for this .c file
 #define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
-
-
-
 
 // *************************************************
 // Power Manager
@@ -160,7 +150,7 @@ SL_WEAK void app_init(void)
   // Don't call any Bluetooth API functions until after the boot event.
 
   // Student Edit: Add a call to gpioInit() here
-
+  gpioInit();
 } // app_init()
 
 
@@ -201,9 +191,13 @@ SL_WEAK void app_process_action(void)
 
   gpioLed0SetOn();
 
+  //gpioLed1SetOn(); //Remove comment to drive both the LED's
+
   delayApprox(3500000);
 
   gpioLed0SetOff();
+
+  //gpioLed1SetOff(); //Remove comment to drive both the LED's
 
 } // app_process_action()
 
