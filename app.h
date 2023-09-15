@@ -61,6 +61,9 @@
 #include "src/ble_device_type.h"
 #include "src/gpio.h"
 #include "src/lcd.h"
+#include "src/irq.h"
+#include "src/timer.h"
+#include "src/oscillator.h"
 
 /**************************************************************************//**
  * Application Init.
