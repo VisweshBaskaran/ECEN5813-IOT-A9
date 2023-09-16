@@ -12,7 +12,8 @@ void init_LETIMER0()
   int32_t temp;
   // this data structure is passed to LETIMER_Init (), used to set LETIMER0_CTRL reg bits and other values
 
-  const LETIMER_Init_TypeDef letimerInitData = {
+  const LETIMER_Init_TypeDef letimerInitData =
+      {
       false, // enable; don't enable when init completes, we'll enable last
       true, // debugRun; useful to have the timer running when single-stepping in the debugger
       true, // comp0Top; load COMP0 into CNT on underflow
@@ -23,7 +24,7 @@ void init_LETIMER0()
       letimerUFOANone, // ufoa1; no underflow output action
       letimerRepeatFree, // repMode; free running mode i.e. load & go forever
       0 // COMP0(top) Value, I calculate this below
-  };
+      };
   // init the timer
   LETIMER_Init (LETIMER0, &letimerInitData);
   // calculate and load COMP0 (top)
@@ -39,7 +40,7 @@ void init_LETIMER0()
   LETIMER_Enable (LETIMER0, true);
   // Test code:
   // read it a few times to make sure it's running within the range of values we expect
-  //temp = LETIMER_CounterGet (LETIMER0);
+  temp = LETIMER_CounterGet (LETIMER0);
   //temp = LETIMER_CounterGet (LETIMER0);
   //temp = LETIMER_CounterGet (LETIMER0);
 }

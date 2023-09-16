@@ -33,7 +33,7 @@
  *
  *
  * Student edit: Add your name and email address here:
- * @student    Awesome Student, Awesome.Student@Colorado.edu
+ * @student    Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
  *
  ******************************************************************************/
@@ -64,6 +64,17 @@
 #include "src/irq.h"
 #include "src/timer.h"
 #include "src/oscillator.h"
+
+
+/*
+ * Macros
+ */
+
+#define LOWEST_ENERGY_MODE (0)
+//#define LOWEST_ENERGY_MODE (1)
+//#define LOWEST_ENERGY_MODE (2)
+//#define LOWEST_ENERGY_MODE (3)
+
 
 /**************************************************************************//**
  * Application Init.

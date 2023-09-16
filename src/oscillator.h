@@ -8,13 +8,10 @@
 #ifndef SRC_OSCILLATOR_H_
 #define SRC_OSCILLATOR_H_
 
-#define LOWEST_ENERGY_MODE (0)
-//#define LOWEST_ENERGY_MODE (1)
-//#define LOWEST_ENERGY_MODE (2)
-//#define LOWEST_ENERGY_MODE (3)
+#include "app.h"
 
-#define LETIMER_ON_TIME_MS (175)
 #define LETIMER_PERIOD_MS (2250)
+#define LETIMER_ON_TIME_MS (175)
 
 #define LXFO (32768)
 #define PRESCALER_LXFO (4)

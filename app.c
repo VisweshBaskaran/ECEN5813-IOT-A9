@@ -44,6 +44,48 @@
 
 #include "app.h"
 
+#if defined(SL_CATALOG_POWER_MANAGER_PRESENT)
+
+// -----------------------------------------------------------------------------
+// defines for power manager callbacks
+// -----------------------------------------------------------------------------
+// Return values for app_is_ok_to_sleep():
+//   Return false to keep sl_power_manager_sleep() from sleeping the MCU.
+//   Return true to allow system to sleep when you expect/want an IRQ to wake
+//   up the MCU from the call to sl_power_manager_sleep() in the main while (1)
+//   loop.
+//
+// Students: We'll need to modify this for A2 onward so that compile time we
+//           control what the lowest EM (energy mode) the MCU sleeps to. So
+//           think "#if (expression)".
+#if LOWEST_ENERGY_MODE == 0
+#define APP_IS_OK_TO_SLEEP      (false)
+#else
+#define APP_IS_OK_TO_SLEEP      (true)
+#endif
+
+// Return values for app_sleep_on_isr_exit():
+//   SL_POWER_MANAGER_IGNORE; // The module did not trigger an ISR and it doesn't want to contribute to the decision
+//   SL_POWER_MANAGER_SLEEP;  // The module was the one that caused the system wakeup and the system SHOULD go back to sleep
+//   SL_POWER_MANAGER_WAKEUP; // The module was the one that caused the system wakeup and the system MUST NOT go back to sleep
+//
+// Notes:
+//       SL_POWER_MANAGER_IGNORE, we see calls to app_process_action() on each IRQ. This is the
+//       expected "normal" behavior.
+//
+//       SL_POWER_MANAGER_SLEEP, the function app_process_action()
+//       in the main while(1) loop will not be called! It would seem that sl_power_manager_sleep()
+//       does not return in this case.
+//
+//       SL_POWER_MANAGER_WAKEUP, doesn't seem to allow ISRs to run. Main while loop is
+//       running continuously, flooding the VCOM port with printf text with LETIMER0 IRQs
+//       disabled somehow, LED0 is not flashing.
+
+#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_IGNORE)
+//#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_SLEEP)
+//#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_WAKEUP)
+
+#endif // defined(SL_CATALOG_POWER_MANAGER_PRESENT)
 
 // *************************************************
 // Students: It is OK to modify this file.
@@ -70,47 +112,6 @@
 // *************************************************
 
 // See: https://docs.silabs.com/gecko-platform/latest/service/power_manager/overview
-#if defined(SL_CATALOG_POWER_MANAGER_PRESENT)
-
-// -----------------------------------------------------------------------------
-// defines for power manager callbacks
-// -----------------------------------------------------------------------------
-// Return values for app_is_ok_to_sleep():
-//   Return false to keep sl_power_manager_sleep() from sleeping the MCU.
-//   Return true to allow system to sleep when you expect/want an IRQ to wake
-//   up the MCU from the call to sl_power_manager_sleep() in the main while (1)
-//   loop.
-//
-// Students: We'll need to modify this for A2 onward so that compile time we
-//           control what the lowest EM (energy mode) the MCU sleeps to. So
-//           think "#if (expression)".
-#define APP_IS_OK_TO_SLEEP      (false)
-//#define APP_IS_OK_TO_SLEEP      (true)
-
-
-// Return values for app_sleep_on_isr_exit():
-//   SL_POWER_MANAGER_IGNORE; // The module did not trigger an ISR and it doesn't want to contribute to the decision
-//   SL_POWER_MANAGER_SLEEP;  // The module was the one that caused the system wakeup and the system SHOULD go back to sleep
-//   SL_POWER_MANAGER_WAKEUP; // The module was the one that caused the system wakeup and the system MUST NOT go back to sleep
-//
-// Notes:
-//       SL_POWER_MANAGER_IGNORE, we see calls to app_process_action() on each IRQ. This is the
-//       expected "normal" behavior.
-//
-//       SL_POWER_MANAGER_SLEEP, the function app_process_action()
-//       in the main while(1) loop will not be called! It would seem that sl_power_manager_sleep()
-//       does not return in this case.
-//
-//       SL_POWER_MANAGER_WAKEUP, doesn't seem to allow ISRs to run. Main while loop is
-//       running continuously, flooding the VCOM port with printf text with LETIMER0 IRQs
-//       disabled somehow, LED0 is not flashing.
-
-#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_IGNORE)
-//#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_SLEEP)
-//#define APP_SLEEP_ON_ISR_EXIT   (SL_POWER_MANAGER_WAKEUP)
-
-#endif // defined(SL_CATALOG_POWER_MANAGER_PRESENT)
-
 
 
 
@@ -148,20 +149,19 @@ SL_WEAK void app_init(void)
   // Put your application 1-time initialization code here.
   // This is called once during start-up.
   // Don't call any Bluetooth API functions until after the boot event.
-
-  if(LOWEST_ENERGY_MODE == 1) {
-        sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
-    }
-    else if(LOWEST_ENERGY_MODE == 2) {
-        sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM2);
-    }
-
   gpioInit();
   init_osc();
   init_LETIMER0();
 
   NVIC_ClearPendingIRQ(LETIMER0_IRQn);
   NVIC_EnableIRQ(LETIMER0_IRQn);
+if(LOWEST_ENERGY_MODE == 1)
+  sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+else if (LOWEST_ENERGY_MODE == 2)
+  sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM2);
+
+
+
 } // app_init()
 
 
@@ -173,7 +173,7 @@ SL_WEAK void app_init(void)
  * comment out this function. Wait loops are a bad idea in general.
  * We'll discuss how to do this a better way in the next assignment.
  *****************************************************************************/
-static void delayApprox(int delay)
+/*static void delayApprox(int delay)
 {
   volatile int i;
 
@@ -181,7 +181,7 @@ static void delayApprox(int delay)
       i=i+1;
   }
 
-} // delayApprox()
+}*/ // delayApprox()
 
 
 
