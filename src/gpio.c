@@ -1,13 +1,13 @@
 /*
   gpio.c
- 
+
    Created on: Dec 12, 2018
        Author: Dan Walkes
    Updated by Dave Sluiter Dec 31, 2020. Minor edits with #defines.
 
    March 17
    Dave Sluiter: Use this file to define functions that set up or control GPIOs.
-   
+
    Jan 24, 2023
    Dave Sluiter: Cleaned up gpioInit() to make it less confusing for students regarding
                  drive strength setting. 
@@ -16,7 +16,6 @@
  * Student edit: Add your name and email address here:
  * @student   Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
- * @reference 1) To access port: https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
  */
 
 
@@ -28,7 +27,8 @@
 
 
 #include "gpio.h"
-
+#define INCLUDE_LOG_DEBUG 1
+#include "src/log.h"
 
 // Student Edit: Define these, 0's are placeholder values.
 //
@@ -38,49 +38,45 @@
 // If these links have gone bad, consult the reference manual and/or the datasheet for the MCU.
 // Change to correct port and pins:
 
-// Reference [1]
-#define LED_port   (gpioPortF)
-#define LED0_pin   (4)
-#define LED1_pin   (5)
+
 
 
 
 // Set GPIO drive strengths and modes of operation
 void gpioInit()
 {
-    // Student Edit:
+  // Student Edit:
 
-    // Set the port's drive strength. In this MCU implementation, all GPIO cells
-    // in a "Port" share the same drive strength setting. 
-	//GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthStrongAlternateStrong); // Strong, 10mA
-	GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
-	
-	// Set the GPIO mode of operation
-	GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
+  // Set the port's drive strength. In this MCU implementation, all GPIO cells
+  // in a "Port" share the same drive strength setting.
+  GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
+
+  // Set the GPIO mode of operation
+  GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
 } // gpioInit()
 
 
 void gpioLed0SetOn()
 {
-	GPIO_PinOutSet(LED_port, LED0_pin);
+  GPIO_PinOutSet(LED_port, LED0_pin);
 }
 
 
 void gpioLed0SetOff()
 {
-	GPIO_PinOutClear(LED_port, LED0_pin);
+  GPIO_PinOutClear(LED_port, LED0_pin);
 }
 
 
 void gpioLed1SetOn()
 {
-	GPIO_PinOutSet(LED_port, LED1_pin);
+  GPIO_PinOutSet(LED_port, LED1_pin);
 }
 
 
 void gpioLed1SetOff()
 {
-	GPIO_PinOutClear(LED_port, LED1_pin);
+  GPIO_PinOutClear(LED_port, LED1_pin);
 }
 
 

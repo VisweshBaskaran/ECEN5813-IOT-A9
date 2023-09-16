@@ -10,6 +10,6 @@
 #define SRC_IRQ_H_
 
 #include "em_core.h"
-#include "src/timer.h"
 #include "src/gpio.h"
+#include "timers.h"
 #endif /* SRC_IRQ_H_ */

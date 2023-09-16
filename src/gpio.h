@@ -12,8 +12,9 @@
 
  *
  * Student edit: Add your name and email address here:
- * @student    Awesome Student, Awesome.Student@Colorado.edu
+ * @student    Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
+ * @reference 1) To access port: https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
  
  */
 
@@ -29,6 +30,11 @@
 #ifndef SRC_GPIO_H_
 #define SRC_GPIO_H_
 
+//Macros
+// Reference [1]
+#define LED_port   (gpioPortF)
+#define LED0_pin   (4)
+#define LED1_pin   (5)
 
 //Header files
 #include <stdbool.h>

@@ -1,17 +1,28 @@
 /*
- * timer.c
- *
- *  Created on: 14-Sep-2023
- *      Author: Viswesh
+ * File name: timer.c
+ * File description: This file defines the API that configures the LETIMER0 peripheral
+ * Date: 14-Sep-2023
+ * Author: Dave Sluiter dave.sluiter@colorado.edu
+ * Modified by: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
+ * Reference:
+ *    [1] ECEN5813 IOT Embedded Firmware lecture slides week 2-3 (Code leveraged as is from slides)
+ *    [2] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */
 
 
-#include "timer.h"
-void init_LETIMER0()
+#include <src/timers.h>
+
+/*
+ * @brief Initializes the LETIMER0 peripheral with the specified configuration.
+ *
+ * @param none
+ *
+ * @return none
+ */
+void letimer0Init()
 {
   int32_t temp;
   // this data structure is passed to LETIMER_Init (), used to set LETIMER0_CTRL reg bits and other values
-
   const LETIMER_Init_TypeDef letimerInitData =
       {
       false, // enable; don't enable when init completes, we'll enable last
@@ -38,9 +49,4 @@ void init_LETIMER0()
   LETIMER_IntEnable (LETIMER0, temp); // Make sure you have defined the ISR routine LETIMER0_IRQHandler()
   // Enable the timer to starting counting down, set LETIMER0_CMD[START] bit, see LETIMER0_STATUS[RUNNING] bit
   LETIMER_Enable (LETIMER0, true);
-  // Test code:
-  // read it a few times to make sure it's running within the range of values we expect
-  temp = LETIMER_CounterGet (LETIMER0);
-  //temp = LETIMER_CounterGet (LETIMER0);
-  //temp = LETIMER_CounterGet (LETIMER0);
-}
+} //letimer0Init()
