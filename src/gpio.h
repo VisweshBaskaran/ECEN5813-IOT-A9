@@ -33,8 +33,10 @@
 //Macros
 // Reference [1]
 #define LED_port   (gpioPortF)
+#define SI7021_port (gpioPortD)
 #define LED0_pin   (4)
 #define LED1_pin   (5)
+#define SI7021_pin (15)
 
 //Header files
 #include <stdbool.h>
@@ -47,6 +49,8 @@ void gpioLed0SetOn();
 void gpioLed0SetOff();
 void gpioLed1SetOn();
 void gpioLed1SetOff();
+void si7021SetOn();
+void si7021SetOff();
 
 
 

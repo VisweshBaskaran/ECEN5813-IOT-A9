@@ -44,7 +44,6 @@
 
 #include "app.h"
 
-
 // *************************************************
 // Students: It is OK to modify this file.
 //           Make edits appropriate for each
@@ -110,14 +109,15 @@ SL_WEAK void app_init(void)
   gpioInit();
   oscInit();
   letimer0Init();
+  i2cInit();
 
   NVIC_ClearPendingIRQ(LETIMER0_IRQn);
   NVIC_EnableIRQ(LETIMER0_IRQn);
 
-if(LOWEST_ENERGY_MODE == 1)
-  sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
-else if (LOWEST_ENERGY_MODE == 2)
-  sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM2);
+  if(LOWEST_ENERGY_MODE == 1)
+    sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+  else if (LOWEST_ENERGY_MODE == 2)
+    sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM2);
 
 
 
@@ -157,17 +157,15 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  //delayApprox(3500000);
-
-  //gpioLed0SetOn();
-
-  //gpioLed1SetOn(); //Remove comment to drive both the LED's
-
-  //delayApprox(3500000);
-
-  //gpioLed0SetOff();
-
-  //gpioLed1SetOff(); //Remove comment to drive both the LED's
+  uint32_t evt;
+  evt = getNextEvent();
+  switch (evt) {
+    case evtLETIMER0_UF:
+      read_temp_from_si7021();
+      break;
+    default:
+      break;
+  } // switch
 
 } // app_process_action()
 

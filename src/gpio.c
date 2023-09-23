@@ -50,9 +50,12 @@ void gpioInit()
   // Set the port's drive strength. In this MCU implementation, all GPIO cells
   // in a "Port" share the same drive strength setting.
   GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
-
   // Set the GPIO mode of operation
   GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
+
+  GPIO_DriveStrengthSet(SI7021_port, gpioDriveStrengthWeakAlternateWeak);
+  // Set the sensor mode of operation
+  GPIO_PinModeSet(SI7021_port, SI7021_pin, gpioModePushPull, false);
 } // gpioInit()
 
 
@@ -79,7 +82,13 @@ void gpioLed1SetOff()
   GPIO_PinOutClear(LED_port, LED1_pin);
 }
 
+void si7021SetOn()
+{
+  GPIO_PinOutSet(SI7021_port, SI7021_pin);
+}
 
-
-
+void si7021SetOff()
+{
+  GPIO_PinOutClear(SI7021_port, SI7021_pin);
+}
 

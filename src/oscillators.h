@@ -14,14 +14,13 @@
 #include "app.h"
 
 //Macros
-#define LETIMER_PERIOD_MS (2250)
-#define LETIMER_ON_TIME_MS (175)
 
-#define LXFO (32768)
-#define PRESCALER_LXFO (4)
+
+#define LFXO (32768)
+#define PRESCALER_LFXO (4)
 
 #define ULFRCO (1000)
-#define PRESCALER_ULFRCO (1)
+
 
 /*
  * @brief This function configures the oscillator and clock settings according to the energy mode set.

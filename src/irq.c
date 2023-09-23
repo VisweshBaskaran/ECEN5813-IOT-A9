@@ -30,15 +30,6 @@ void LETIMER0_IRQHandler(void)
   //Exiting critical section
   CORE_EXIT_CRITICAL();
 
-  //Sequence to turn on LED at start of 2250 ms period
-  if(flag & LETIMER_IF_UF)
-    {
-      gpioLed0SetOff();
-    }
-
-  if (flag & LETIMER_IF_COMP1)
-    {
-      gpioLed0SetOn();
-    }
+  schedulerSetEventUF();
 }
 
