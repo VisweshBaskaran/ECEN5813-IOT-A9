@@ -16,7 +16,7 @@
 
 #include "src/i2c.h"
 
-I2C_TransferReturn_TypeDef transferStatus;
+
 uint8_t cmd_data;
 uint8_t read_data[2];
 I2C_TransferSeq_TypeDef transferSequence;
@@ -53,11 +53,14 @@ void i2cInit(void)
  */
 void Write_I2C(uint8_t command)
 {
+  I2C_TransferReturn_TypeDef transferStatus;
+  i2cInit();
   cmd_data = command;
   transferSequence.addr = SI7021_DEVICE_ADDR << 1; // shift device address left
   transferSequence.flags = I2C_FLAG_WRITE;
   transferSequence.buf[0].data = &cmd_data; // pointer to data to write
   transferSequence.buf[0].len = sizeof(cmd_data);
+  NVIC_EnableIRQ(I2C0_IRQn);
   transferStatus = I2CSPM_Transfer (I2C0, &transferSequence);
   if (transferStatus != i2cTransferDone)
     {
@@ -72,10 +75,13 @@ void Write_I2C(uint8_t command)
  */
 void Read_I2C(void)
 {
+  I2C_TransferReturn_TypeDef transferStatus;
+  i2cInit();
   transferSequence.addr = SI7021_DEVICE_ADDR << 1; // shift device address left
   transferSequence.flags = I2C_FLAG_READ;
   transferSequence.buf[0].data = read_data; // pointer to data to write
   transferSequence.buf[0].len = sizeof(read_data);
+  NVIC_EnableIRQ(I2C0_IRQn);
 
   transferStatus = I2CSPM_Transfer (I2C0, &transferSequence);
   if (transferStatus != i2cTransferDone)
@@ -90,18 +96,20 @@ void Read_I2C(void)
  */
 void read_temp_from_si7021(void)
 {
-  //Powering on the temperature sensor
+  /*Lines 101 - 112 is performed through temperature_state_machine in scheduler.c*/
+
+  /*//Powering on the temperature sensor
   si7021SetOn();
   //Polled delay for 80ms to wait for power to stabilize + POR time
-  timerwaitUs(80000);
+  timerwaitUs_polled(80000);
   //Writing command data to Measure Temperature in no hold master mode
   Write_I2C(0xF3);
   //Conversion time for 14 bit temperature reading
-  timerwaitUs(10800);
+  timerwaitUs_polled(10800);
   //Reading data from the I2C recieve buffer
   Read_I2C();
   //Powering on the temperature sensor
-  si7021SetOff();
+  si7021SetOff();*/
   //Swapping lower 8 bits with higher 8 bit
   uint16_t swapped_read_data = ((read_data[0])<<8) | (read_data[1]);
   //Converting to celsius

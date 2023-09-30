@@ -11,5 +11,8 @@
 
 #include "em_core.h"
 #include "src/gpio.h"
-#include "timers.h"
+#include "src/timers.h"
+#include "src/scheduler.h"
+uint32_t letimerMilliseconds(void);
+
 #endif /* SRC_IRQ_H_ */

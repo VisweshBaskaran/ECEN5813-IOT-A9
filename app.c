@@ -159,13 +159,8 @@ SL_WEAK void app_process_action(void)
 
   uint32_t evt;
   evt = getNextEvent();
-  switch (evt) {
-    case evtLETIMER0_UF:
-      read_temp_from_si7021();
-      break;
-    default:
-      break;
-  } // switch
+  temperature_state_machine(evt);
+
 
 } // app_process_action()
 

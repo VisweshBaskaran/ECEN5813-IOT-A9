@@ -42,10 +42,9 @@ uint32_t loggerGetTimestamp()
      //           assignments that require logging (a fancy printf).
      //           Put the letimerMilliseconds() function in your irq.c/.h files.
 
-     //return letimerMilliseconds();
-	   return (0);
+     return letimerMilliseconds();
 	   
-} // loggerGetTimestamp
+} // loggerGetTimestamp()
 
 
 
@@ -77,7 +76,6 @@ void printSLErrorString(sl_status_t status) {
   }
 
 } // printSLErrorString()
-
 
 
 

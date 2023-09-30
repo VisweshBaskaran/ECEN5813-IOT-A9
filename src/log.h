@@ -25,6 +25,7 @@
 #ifndef SRC_LOG_H_
 #define SRC_LOG_H_
 #include "stdio.h"
+#include "src/irq.h"
 #include <inttypes.h>
 
 #include "app_log.h"   // for LOG_INFO() / printf() / app_log() output the VCOM port

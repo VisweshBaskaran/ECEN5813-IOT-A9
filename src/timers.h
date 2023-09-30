@@ -62,5 +62,9 @@ void letimer0Init(void);
  *
  * @return none
  */
-void timerwaitUs(uint32_t us);
+void timerwaitUs_polled(uint32_t us);
+
+void timerwaitUs_interrupt(uint32_t us);
+
+
 #endif /* SRC_TIMERS_H_ */
