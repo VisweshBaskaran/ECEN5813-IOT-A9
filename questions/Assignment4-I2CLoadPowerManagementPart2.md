@@ -29,6 +29,6 @@ See [Mastering Markdown](https://guides.github.com/features/mastering-markdown/)
    Answer (in hours): 1000mAH/14.43uA = 69300.06 hours
    
 6. How has the power consumption performance of your design changed since the previous assignment?
-   Answer: Tbe average current drawn per period has dropped from 148.98uA to 14.43uA, a reduction of close to 90% is seen as we take more control of the energy modes and make the processor sleep 
+   Answer: The average current drawn per period has dropped from 148.98uA to 14.43uA, a reduction of close to 90% is seen as we take more control of the energy modes and make the processor sleep 
            when not required (timerwait delay period) through the state machine in Assignment 4, as compared to Assignment 3 where a busy wait implementation was used and the processor was turned 
-           on even when its not required. This also improves the operating time by 10 times.
+           on even when its not required. This also improves the operating time in Assignment 4 implementation by 10 times than that of Assignment 3 implementation.

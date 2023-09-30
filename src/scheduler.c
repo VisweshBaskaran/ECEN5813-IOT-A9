@@ -127,18 +127,22 @@ void temperature_state_machine(uint32_t evt)
   {
     case IDLE:
       nextState = IDLE; //default
+      // Transition to WAIT_FOR_STABILIZE when LETIMER0_UF event occurs
       if(evt == evtLETIMER0_UF)
         {
           nextState = WAIT_FOR_STABILIZE;
+          // Enable the si7021 sensor and wait for stabilization
           si7021SetOn();
           timerwaitUs_interrupt(80000);
         }
       break;
     case WAIT_FOR_STABILIZE:
       nextState = WAIT_FOR_STABILIZE; //default
+      // Transition to I2C_WRITE when LETIMER0_COMP1 event occurs
       if(evt == evtLETIMER0_COMP1)
         {
           nextState = I2C_WRITE;
+          // Add EM1 requirement and write to I2C
           sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
           Write_I2C(0xF3);
 
@@ -146,9 +150,11 @@ void temperature_state_machine(uint32_t evt)
       break;
     case I2C_WRITE:
       nextState = I2C_WRITE; //default
+      // Transition to WAIT_FOR_CONVERSION when I2C_Transfer_Complete event occurs
       if(evt == evtI2C_Transfer_Complete)
         {
           nextState = WAIT_FOR_CONVERSION;
+          // Disable I2C interrupt and remove EM1 requirement, then wait for conversion
           NVIC_DisableIRQ(I2C0_IRQn);
           sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
           timerwaitUs_interrupt(10800);
@@ -156,18 +162,23 @@ void temperature_state_machine(uint32_t evt)
       break;
     case WAIT_FOR_CONVERSION:
       nextState = WAIT_FOR_CONVERSION; //default
+      // Transition to I2C_READ when LETIMER0_COMP1 event occurs
       if(evt == evtLETIMER0_COMP1)
         {
           nextState = I2C_READ;
+          // Add EM1 requirement and read from I2C
           sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
           Read_I2C();
         }
       break;
     case I2C_READ:
       nextState = I2C_READ; //default
+      // Transition to IDLE when I2C_Transfer_Complete event occurs
       if(evt == evtI2C_Transfer_Complete)
         {
           nextState = IDLE;
+          // Disable I2C interrupt, remove EM1 requirement, turn off si7021 sensor,
+          // and read temperature from si7021
           NVIC_DisableIRQ(I2C0_IRQn);
           sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
           si7021SetOff();
