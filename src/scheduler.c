@@ -4,7 +4,7 @@
  * Date: 21-Sep-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides week 3
+ *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
  */
 #include "src/scheduler.h"
 typedef enum
@@ -35,6 +35,13 @@ void schedulerSetEventUF(void)
 
 }
 
+/*
+ * @brief Sets the LETIMER0 COMP1 event flag in the scheduler.
+ *
+ * @param none
+ *
+ * @return none
+ */
 void schedulerSetEventCOMP1(void)
 {
   CORE_DECLARE_IRQ_STATE;
@@ -44,6 +51,14 @@ void schedulerSetEventCOMP1(void)
   CORE_EXIT_CRITICAL(); // exit critical, re-enable interrupts in NVIC
 
 }
+
+/*
+ * @brief Sets I2C Transfer complete flag in the scheduler
+ *
+ * @param none
+ *
+ * @return none
+ */
 void schedulerSetEventTransferComplete(void)
 {
   CORE_DECLARE_IRQ_STATE;
@@ -96,6 +111,13 @@ uint32_t getNextEvent(void)
   return (theEvent);
 } // getNextEvent()
 
+/*
+ * @brief State machine to read temperature using SI7021 through I2C communications
+ *
+ * @param evt, scheduler events to drive states
+ *
+ * @returns none
+ */
 void temperature_state_machine(uint32_t evt)
 {
   State_t currentState;
@@ -113,7 +135,7 @@ void temperature_state_machine(uint32_t evt)
         }
       break;
     case WAIT_FOR_STABILIZE:
-      nextState = WAIT_FOR_STABILIZE;
+      nextState = WAIT_FOR_STABILIZE; //default
       if(evt == evtLETIMER0_COMP1)
         {
           nextState = I2C_WRITE;
@@ -123,7 +145,7 @@ void temperature_state_machine(uint32_t evt)
         }
       break;
     case I2C_WRITE:
-      nextState = I2C_WRITE;
+      nextState = I2C_WRITE; //default
       if(evt == evtI2C_Transfer_Complete)
         {
           nextState = WAIT_FOR_CONVERSION;
@@ -133,7 +155,7 @@ void temperature_state_machine(uint32_t evt)
         }
       break;
     case WAIT_FOR_CONVERSION:
-      nextState = WAIT_FOR_CONVERSION;
+      nextState = WAIT_FOR_CONVERSION; //default
       if(evt == evtLETIMER0_COMP1)
         {
           nextState = I2C_READ;
@@ -142,7 +164,7 @@ void temperature_state_machine(uint32_t evt)
         }
       break;
     case I2C_READ:
-      nextState = I2C_READ;
+      nextState = I2C_READ; //default
       if(evt == evtI2C_Transfer_Complete)
         {
           nextState = IDLE;

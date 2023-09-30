@@ -4,7 +4,7 @@
  * Date: 21-Sep-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides week 3
+ *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
  *    [2] SI7201 A20 Datasheet https://www.silabs.com/documents/public/data-sheets/Si7021-A20.pdf
  *    [3] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */

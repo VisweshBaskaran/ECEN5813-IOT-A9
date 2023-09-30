@@ -4,16 +4,15 @@
  * Date: 21-Sep-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides week 3
+ *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
  *    [2] SI7201 A20 Datasheet https://www.silabs.com/documents/public/data-sheets/Si7021-A20.pdf
  *    [3] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */
 
 
 // Include logging for this file
-#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1 //comment this out while taking energy measurements
 #include "src/log.h"
-
 #include "src/i2c.h"
 
 
@@ -61,8 +60,8 @@ void Write_I2C(uint8_t command)
   transferSequence.buf[0].data = &cmd_data; // pointer to data to write
   transferSequence.buf[0].len = sizeof(cmd_data);
   NVIC_EnableIRQ(I2C0_IRQn);
-  transferStatus = I2CSPM_Transfer (I2C0, &transferSequence);
-  if (transferStatus != i2cTransferDone)
+  transferStatus = I2C_TransferInit (I2C0, &transferSequence);
+  if (transferStatus < 0)
     {
       LOG_ERROR("I2CSPM_Transfer: I2C bus write of cmd=%d failed\r\n", cmd_data);
     }
@@ -83,8 +82,8 @@ void Read_I2C(void)
   transferSequence.buf[0].len = sizeof(read_data);
   NVIC_EnableIRQ(I2C0_IRQn);
 
-  transferStatus = I2CSPM_Transfer (I2C0, &transferSequence);
-  if (transferStatus != i2cTransferDone)
+  transferStatus = I2C_TransferInit (I2C0, &transferSequence);
+  if (transferStatus < 0)
     {
       LOG_ERROR("I2CSPM_Transfer: I2C bus read failed\r\n");
     }
@@ -96,25 +95,11 @@ void Read_I2C(void)
  */
 void read_temp_from_si7021(void)
 {
-  /*Lines 101 - 112 is performed through temperature_state_machine in scheduler.c*/
-
-  /*//Powering on the temperature sensor
-  si7021SetOn();
-  //Polled delay for 80ms to wait for power to stabilize + POR time
-  timerwaitUs_polled(80000);
-  //Writing command data to Measure Temperature in no hold master mode
-  Write_I2C(0xF3);
-  //Conversion time for 14 bit temperature reading
-  timerwaitUs_polled(10800);
-  //Reading data from the I2C recieve buffer
-  Read_I2C();
-  //Powering on the temperature sensor
-  si7021SetOff();*/
   //Swapping lower 8 bits with higher 8 bit
   uint16_t swapped_read_data = ((read_data[0])<<8) | (read_data[1]);
   //Converting to celsius
-  float temp = (((swapped_read_data)*175.72)/65536) - 46.85 ;
-  LOG_INFO("Read temperature = %.2f Celsius\r\n",temp);
+  int32_t temp = (((swapped_read_data)*175.72)/65536) - 46.85; //modified datatype to int32_t from float to accomodate A5 changes
+  LOG_INFO("Read temperature = %d Celsius\r\n",temp);
 }
 
 

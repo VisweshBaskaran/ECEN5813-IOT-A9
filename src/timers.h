@@ -56,7 +56,7 @@
 void letimer0Init(void);
 
 /*
- * @brief Function to create delay in order of microseconds using LETIMER.
+ * @brief Polling based function to create delay in order of microseconds using LETIMER0.
  *
  * @param us The duration to wait in microseconds.
  *
@@ -64,6 +64,13 @@ void letimer0Init(void);
  */
 void timerwaitUs_polled(uint32_t us);
 
+/*
+ * @brief Polling based function to create delay in order of microseconds using LETIMER0.
+ *
+ * @param us The duration to wait in microseconds.
+ *
+ * @return none
+ */
 void timerwaitUs_interrupt(uint32_t us);
 
 

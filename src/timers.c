@@ -9,7 +9,7 @@
  *    [2] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */
 // Include logging for this file
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 #include <src/timers.h>
 
@@ -50,7 +50,7 @@ void letimer0Init()
 } //letimer0Init()
 
 /*
- * @brief Function to create delay in order of microseconds using LETIMER.
+ * @brief Polling based function to create delay in order of microseconds using LETIMER0.
  *
  * @param us The duration to wait in microseconds.
  *
@@ -64,11 +64,17 @@ void timerwaitUs_polled(uint32_t us)
       LOG_ERROR("Requested us delay is over the range. Clamped to max value: 8e6us\r\n");
       us = MAX_US_VAL;
     }
-  if(us< EM3_MIN_US_VAL)
+  if(LOWEST_ENERGY_MODE == 3 && us< EM3_MIN_US_VAL)
     {
       LOG_ERROR("Requested us delay is under the range. Clamped to min value: 1000us\r\n");
       us = EM3_MIN_US_VAL;
     }
+  if(LOWEST_ENERGY_MODE != 3 && us< EM_0TO2_MIN_US_VAL)
+    {
+      LOG_ERROR("Requested us delay is under the range. Clamped to min value: 123us\r\n");
+      us = EM_0TO2_MIN_US_VAL;
+    }
+
   uint32_t needed_ticks, current_tick, target_tick;
   // Calculate the number of timer ticks needed for the specified delay.
   needed_ticks = us/ULFRCO;
@@ -81,6 +87,13 @@ void timerwaitUs_polled(uint32_t us)
     ; //busy wait
 
 }
+/*
+ * @brief Interrupt based function to create delay in order of microseconds using LETIMER0.
+ *
+ * @param us The duration to wait in microseconds.
+ *
+ * @return none
+ */
 void timerwaitUs_interrupt(uint32_t us)
 {
   // Ensuring the requested delay is within a valid range and clamp if necessary.
@@ -89,11 +102,17 @@ void timerwaitUs_interrupt(uint32_t us)
       LOG_ERROR("Requested us delay is over the range. Clamped to max value: 8e6us\r\n");
       us = MAX_US_VAL;
     }
-  if(us< EM3_MIN_US_VAL)
+  if(LOWEST_ENERGY_MODE == 3 && us< EM3_MIN_US_VAL)
     {
       LOG_ERROR("Requested us delay is under the range. Clamped to min value: 1000us\r\n");
       us = EM3_MIN_US_VAL;
     }
+  if(LOWEST_ENERGY_MODE != 3 && us< EM_0TO2_MIN_US_VAL)
+    {
+      LOG_ERROR("Requested us delay is under the range. Clamped to min value: 123us\r\n");
+      us = EM_0TO2_MIN_US_VAL;
+    }
+
   uint32_t needed_ticks, current_tick, target_tick;
   needed_ticks = us/ULFRCO;
   current_tick = LETIMER_CounterGet(LETIMER0);
@@ -101,10 +120,10 @@ void timerwaitUs_interrupt(uint32_t us)
   // Otherwise, count down from the current tick.
   target_tick  = (needed_ticks > current_tick) ? (uint32_t)(COMP0_LOAD - (needed_ticks - current_tick)) : (current_tick - needed_ticks);
 
-  LETIMER_IntClear (LETIMER0, 0xFFFFFFFF); // punch them all down
+  //LETIMER_IntClear(LETIMER0, LETIMER_IF_COMP1);
+  LETIMER_IntClear(LETIMER0, 0xFFFFFFFF);
   LETIMER_CompareSet(LETIMER0, 1, target_tick);
-  int32_t temp = LETIMER_IEN_COMP1;
-  LETIMER_IntEnable(LETIMER0, temp);
+  LETIMER_IntEnable(LETIMER0, LETIMER_IEN_COMP1);
   //Force loading due to ssv5 compiler bug
   LETIMER_TypeDef *letimer;
   letimer = LETIMER0;

@@ -4,7 +4,7 @@
  * Date: 21-Sep-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides week 3
+ *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
  */
 
 #ifndef SRC_SCHEDULER_H_
@@ -41,7 +41,7 @@ void schedulerSetEventUF(void);
 void schedulerSetEventCOMP1(void);
 
 /*
- * @brief
+ * @brief Sets I2C Transfer complete flag in the scheduler
  *
  * @param none
  *
@@ -57,6 +57,13 @@ void schedulerSetEventTransferComplete(void);
  */
 uint32_t getNextEvent(void);
 
+/*
+ * @brief State machine to read temperature using SI7021 through I2C communications
+ *
+ * @param evt, scheduler events to drive states
+ *
+ * @returns none
+ */
 void temperature_state_machine(uint32_t evt);
 
 #endif /* SRC_SCHEDULER_H_ */
