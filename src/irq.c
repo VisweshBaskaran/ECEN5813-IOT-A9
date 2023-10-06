@@ -8,7 +8,7 @@
  */
 
 #include "irq.h"
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 int rollover_count = 0;
 

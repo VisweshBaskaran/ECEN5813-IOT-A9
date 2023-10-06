@@ -10,9 +10,7 @@
 #ifndef SRC_SCHEDULER_H_
 #define SRC_SCHEDULER_H_
 #include "em_core.h"
-#include "src/gpio.h"
 #include "app.h"
-#include "src/timers.h"
 enum {
   evtLETIMER0_UF = 0b01,
   evtLETIMER0_COMP1 = 0b10,
@@ -64,6 +62,6 @@ uint32_t getNextEvent(void);
  *
  * @returns none
  */
-void temperature_state_machine(uint32_t evt);
+void temperature_state_machine(sl_bt_msg_t *evt);
 
 #endif /* SRC_SCHEDULER_H_ */

@@ -66,6 +66,7 @@
 #include "src/timers.h"
 #include "src/i2c.h"
 #include "src/scheduler.h"
+#include "src/ble.h"
 /*
  * Macros
  */
@@ -73,8 +74,8 @@
 //To select energy mode comment and un-comment as required L74-77
 //#define LOWEST_ENERGY_MODE 0
 //#define LOWEST_ENERGY_MODE 1
-//#define LOWEST_ENERGY_MODE 2
-#define LOWEST_ENERGY_MODE 3
+#define LOWEST_ENERGY_MODE 2
+//#define LOWEST_ENERGY_MODE 3
 
 
 #if defined(SL_CATALOG_POWER_MANAGER_PRESENT)
