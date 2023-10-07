@@ -1,8 +1,11 @@
 /*
- * ble.c
- *
- *  Created on: 04-Oct-2023
- *      Author: Viswesh
+ * File name: ble.h
+ * File description: This file declares the BLE APIs
+ * Date: 04-Oct-2023
+ * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
+ * Reference:
+ *  [1] ECEN5813 IOT Embedded Firmware lecture slides week 5
+ *  [2] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */
 
 
@@ -21,21 +24,41 @@ uint16_t peripheral_latency = 4;
 uint16_t supervision_timeout = 0x4c; //(peripheral_latency+1)*(connection_interval * 2) = 750ms/10 = 0x4b;
 uint16_t log_timeout, log_latency, log_interval;
 
+//htm temperature variables
 uint8_t htm_temperature_buffer[5];
 uint8_t *p = htm_temperature_buffer;
 uint32_t htm_temperature_flt;
+uint8_t flags = 0x00;
 int32_t temperature_in_c;
 
+/**
+ * @brief Get a pointer to the BLE data structure.
+ *
+ * @param none
+ *
+ * @return A pointer to the BLE data structure.
+ */
 ble_data_struct_t *get_ble_data_ptr(void)
 {
   return &ble_data_ptr;
 }
 
+/**
+ * @brief This function reads temperature data from the SI7021 sensor, converts it to IEEE-11073 format,
+ *        and writes it to the specified GATT characteristic in the BLE GATT server
+ *
+ * @param none
+ *
+ * @returns none
+ *
+ * @reference ECEN5823 Lecture 10 slides
+ */
 void handle_ble_event(sl_bt_msg_t *evt)
 {
   ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
-  sl_status_t sc;
-  switch (SL_BT_MSG_ID(evt->header)) {
+  sl_status_t sc = SL_STATUS_OK;
+  switch (SL_BT_MSG_ID(evt->header))
+  {
     // ******************************************************
     // Events common to both Servers and Clients
     // ******************************************************
@@ -45,27 +68,40 @@ void handle_ble_event(sl_bt_msg_t *evt)
     // Including starting BT stack soft timers!
     // --------------------------------------------------------
     case sl_bt_evt_system_boot_id:
-      LOG_INFO("Boot event\n\r");
-      ble_data_ptr->connection_open = false;
+      //Clearing all boolean flags
+      ble_data_ptr->connection_open = false; //false = closed
       ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->indication_inflight = false;
+
+      /*
+       * Read the Bluetooth identity address used by the device, which can be a public
+       * or random static device address.
+       */
       sc = sl_bt_system_get_identity_address(&ble_data_ptr->myAddress, &ble_data_ptr->myAddressType);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_system_get_identity_address() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
 
+      /*
+       * Create an advertising set. The handle of the created advertising set is
+       * returned in response.
+       */
       sc = sl_bt_advertiser_create_set(&ble_data_ptr->advertisingSetHandle);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_advertiser_create_set() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
-
+      /*
+       * Set the advertising timing parameters of the given advertising set. This
+       * setting will take effect next time that advertising is enabled.
+       */
       sc = sl_bt_advertiser_set_timing(ble_data_ptr->advertisingSetHandle,advertising_interval_min, advertising_interval_max ,0,0);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_advertiser_set_timing() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
+      /*Start advertising of a given advertising set with specified discoverable and connectable modes*/
       //@reference Immediate line of code based on soc_thermometer example app.c line 157-160
       sc = sl_bt_advertiser_start(ble_data_ptr->advertisingSetHandle,sl_bt_advertiser_general_discoverable,sl_bt_advertiser_connectable_scannable);
       if (sc != SL_STATUS_OK)
@@ -75,7 +111,6 @@ void handle_ble_event(sl_bt_msg_t *evt)
       break;
       //This event indicates that a new connection was opened.
     case sl_bt_evt_connection_opened_id:
-      LOG_INFO("Opened event\n\r");
       /* @reference
             Immediate line of code generated using ChatGPT with the following prompt:
             "After event: sl_bt_evt_connection_opened_id
@@ -84,14 +119,19 @@ void handle_ble_event(sl_bt_msg_t *evt)
        */
       ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection;  // Save the connection handle for future use
       ble_data_ptr->connection_open = true;
-      //ble_data_ptr->ok_to_send_htm_indications; = false;
-      //ble_data_ptr->ok_to_send_htm_indications;_inflight = false;
+      /*
+       * Stop the advertising of the given advertising set. Counterpart with @ref
+       * sl_bt_advertiser_start.
+       */
       sc = sl_bt_advertiser_stop(ble_data_ptr->advertisingSetHandle);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_advertiser_stop() returned != 0 status=0x%04x\r\n", (unsigned int) sc);
         }
 
+      /*
+       * Request a change in the connection parameters of a Bluetooth connection.
+       */
       sc = sl_bt_connection_set_parameters(ble_data_ptr->connection_handle,
                                            connection_interval_min,
                                            connection_interval_max,
@@ -105,8 +145,8 @@ void handle_ble_event(sl_bt_msg_t *evt)
       break;
       //This event indicates that a connection was closed.
     case sl_bt_evt_connection_closed_id:
-      LOG_INFO("Closed event\n\r");
       ble_data_ptr->connection_open = false;
+      /* Start advertising of a given advertising set with specified discoverable and connectable modes. */
       sc = sl_bt_advertiser_start(ble_data_ptr->advertisingSetHandle,sl_bt_advertiser_general_discoverable,sl_bt_advertiser_connectable_scannable);
       if (sc != SL_STATUS_OK)
         {
@@ -127,14 +167,15 @@ void handle_ble_event(sl_bt_msg_t *evt)
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
     case sl_bt_evt_system_external_signal_id:
       break;
-      /*
-       * Events only for Slaves/Servers
-       */
+      /********************************/
+      /*Events only for Slaves/Servers*/
+      /********************************/
       /*
        * Indicates either:
        * A local Client Characteristic Configuration descriptor (CCCD) was changed by the remote GATT client, or
        * That a confirmation from the remote GATT Client was received upon a successful reception of the indication I.e. we sent an indication from our server to the client with sl_bt_gatt_server_send_indication()
        */
+
     case sl_bt_evt_gatt_server_characteristic_status_id:
 
       /*******************************************************************************
@@ -169,35 +210,47 @@ void handle_ble_event(sl_bt_msg_t *evt)
 
       //sl_bt_api.h: line 5300: sl_bt_gatt_server_characteristic_status_flag_t sl_bt_gatt_server_client_config = 0x1
 
-      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == 0x01)
+      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == sl_bt_gatt_server_client_config)
         {
           //sl_bt_api.h line 3735: sl_bt_gatt_client_config_flag_t sl_bt_gatt_disable = 0x0
-          if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == 0x00)
+          if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_disable)
             {
               ble_data_ptr->ok_to_send_htm_indications = false;
             }
           //sl_bt_api.h line 3735: sl_bt_gatt_client_config_flag_t sl_bt_gatt_indication = 0x02
-          else if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == 0x02)
+          else if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_indication)
             {
               ble_data_ptr->ok_to_send_htm_indications = true;
             }
         }
       //sl_bt_api.h line 5302 sl_bt_gatt_server_characteristic_status_flag_t sl_bt_gatt_server_confirmation  = 0x2
-      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == 0x02)
+      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == sl_bt_gatt_server_confirmation)
         {
           ble_data_ptr->indication_inflight = false; //indication reached
         }
       break;
+
     case sl_bt_evt_gatt_server_indication_timeout_id:
-      //LOG_ERR
+      LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x", (unsigned int) sc);
       ble_data_ptr->indication_inflight = false; //indication reached
       break;
   } // end - switch
 } // handle_ble_event()
 
-void ble_write_temp_from_si7021()
+/**
+ * @brief This function reads temperature data from the SI7021 sensor, converts it to IEEE-11073 format,
+ *        and writes it to the specified GATT characteristic in the BLE GATT server
+ *
+ * @param none
+ *
+ * @returns none
+ *
+ * @reference ECEN5823 Lecture 10 slides
+ */
+void ble_write_temp_from_si7021(void)
 {
   ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  UINT8_TO_BITSTREAM(p, flags);
   temperature_in_c = read_temp_from_si7021();
   htm_temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
   UINT32_TO_BITSTREAM(p, htm_temperature_flt);
@@ -212,19 +265,18 @@ void ble_write_temp_from_si7021()
       (uint8_t *)&(temperature_in_c) // pointer to buffer where data is
   );
 
-
   if (sc != SL_STATUS_OK)
     {
       LOG_ERROR("sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x", (unsigned int) sc);
     }
 
-  if((ble_data_ptr->ok_to_send_htm_indications == true) && (ble_data_ptr->indication_inflight == false))
+  if((ble_data_ptr->ok_to_send_htm_indications == true)  && (ble_data_ptr->connection_open == true))
     {
       sc = sl_bt_gatt_server_send_indication(
           ble_data_ptr->connection_handle,
-          gattdb_temperature_measurement, // handle from gatt_db.h
+          gattdb_temperature_measurement, //handle from gatt_db.h
           5,
-          &htm_temperature_buffer[0] // in IEEE-11073 format
+          &htm_temperature_buffer[0] //in IEEE-11073 format
       );
       if (sc != SL_STATUS_OK) {
           LOG_ERROR("sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x", (unsigned int) sc);
@@ -232,8 +284,8 @@ void ble_write_temp_from_si7021()
       else
         {
           ble_data_ptr->indication_inflight = true;
-          LOG_INFO("Temp=%d\n\r", temperature_in_c);
+          //LOG_INFO("Temp=%d\n\r", temperature_in_c);
         }
     }
-}
+} //ble_write_temp_from_si7021()
 

@@ -110,9 +110,11 @@ SL_WEAK void app_init(void)
   oscInit();
   letimer0Init();
   i2cInit();
-
+  //ble_init();
   NVIC_ClearPendingIRQ(LETIMER0_IRQn);
   NVIC_EnableIRQ(LETIMER0_IRQn);
+  //NVIC_ClearPendingIRQ(I2C0_IRQn);
+  //NVIC_EnableIRQ(I2C0_IRQn);
 
   if(LOWEST_ENERGY_MODE == 1)
     sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);

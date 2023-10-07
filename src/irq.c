@@ -69,9 +69,10 @@ void I2C0_IRQHandler(void)
  * @param none
  *
  * @returns time elapsed since execution
+ *
+ * NOTE: Helped Aditi Vijay Nanaware with her letimerMilliseconds by providing my return statement
  */
 uint32_t letimerMilliseconds(void)
 {
-
   return (rollover_count + ((LETIMER_CompareGet(LETIMER0, 0) - LETIMER_CounterGet(LETIMER0))/LETIMER_CompareGet(LETIMER0, 0)))*LETIMER_PERIOD_MS;
 }

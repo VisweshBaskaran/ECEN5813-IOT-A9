@@ -99,7 +99,6 @@ int32_t read_temp_from_si7021(void)
   uint16_t swapped_read_data = ((read_data[0])<<8) | (read_data[1]);
   //Converting to celsius
   int32_t temp = (((swapped_read_data)*175.72)/65536) - 46.85; //modified datatype to int32_t from float to accomodate A5 changes
-  //LOG_INFO("Read temperature = %d Celsius\r\n",temp);
   return temp;
 }
 

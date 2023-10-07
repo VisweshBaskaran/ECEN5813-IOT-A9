@@ -6,7 +6,7 @@
  * Reference:
  *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
  */
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 #include "src/scheduler.h"
 typedef enum
@@ -81,7 +81,7 @@ void schedulerSetEventTransferComplete(void)
  *
  * @return none
  */
-/*uint32_t getNextEvent(void)
+uint32_t getNextEvent(void)
 {
   int32_t theEvent = CLEAR_EVENT; //Setting to 0 to avoid garbage value
   //theEvent =  myEvents; // 1 event to return to the caller
@@ -114,7 +114,7 @@ void schedulerSetEventTransferComplete(void)
 
   CORE_EXIT_CRITICAL();
   return (theEvent);
-}*/ // getNextEvent()
+} // getNextEvent()
 
 /*
  * @brief State machine to read temperature using SI7021 through I2C communications
@@ -134,6 +134,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
       switch(currentState)
       {
         case IDLE:
+         // LOG_INFO("Entered Idle state\n\r");
           nextState = IDLE; //default
           // Transition to WAIT_FOR_STABILIZE when LETIMER0_UF event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_UF)
@@ -145,6 +146,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case WAIT_FOR_STABILIZE:
+         //LOG_INFO("Entered wait_statbilize state\n\r");
           nextState = WAIT_FOR_STABILIZE; //default
           // Transition to I2C_WRITE when LETIMER0_COMP1 event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_COMP1)
@@ -157,6 +159,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case I2C_WRITE:
+          //LOG_INFO("Entered Write state\n\r");
           nextState = I2C_WRITE; //default
           // Transition to WAIT_FOR_CONVERSION when I2C_Transfer_Complete event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtI2C_Transfer_Complete)
@@ -169,6 +172,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case WAIT_FOR_CONVERSION:
+         //LOG_INFO("Entered wait_conversion state\n\r");
           nextState = WAIT_FOR_CONVERSION; //default
           // Transition to I2C_READ when LETIMER0_COMP1 event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_COMP1)
@@ -180,6 +184,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case I2C_READ:
+         //LOG_INFO("Entered Read state\n\r");
           nextState = I2C_READ; //default
           // Transition to IDLE when I2C_Transfer_Complete event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtI2C_Transfer_Complete)

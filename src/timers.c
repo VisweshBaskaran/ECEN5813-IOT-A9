@@ -77,7 +77,10 @@ void timerwaitUs_polled(uint32_t us)
 
   uint32_t needed_ticks, current_tick, target_tick;
   // Calculate the number of timer ticks needed for the specified delay.
-  needed_ticks = us/ULFRCO;
+  if(LOWEST_ENERGY_MODE == 3)
+    needed_ticks = us/ULFRCO;
+  else if(LOWEST_ENERGY_MODE != 3)
+    needed_ticks = PRESCALER_LFXO * us/LFXO;
   current_tick = LETIMER_CounterGet(LETIMER0);
   // If time remaining is greater than current tick, count down from COMP0_LOAD.
   // Otherwise, count down from the current tick.
@@ -114,13 +117,15 @@ void timerwaitUs_interrupt(uint32_t us)
     }
 
   uint32_t needed_ticks, current_tick, target_tick;
-  needed_ticks = us/ULFRCO;
+  if(LOWEST_ENERGY_MODE == 3)
+    needed_ticks = us/ULFRCO;
+  else if(LOWEST_ENERGY_MODE != 3)
+    needed_ticks = PRESCALER_LFXO * us * 10e3/LFXO;
   current_tick = LETIMER_CounterGet(LETIMER0);
   // If time remaining is greater than current tick, count down from COMP0_LOAD.
   // Otherwise, count down from the current tick.
   target_tick  = (needed_ticks > current_tick) ? (uint32_t)(COMP0_LOAD - (needed_ticks - current_tick)) : (current_tick - needed_ticks);
 
-  //LETIMER_IntClear(LETIMER0, LETIMER_IF_COMP1);
   LETIMER_IntClear(LETIMER0, 0xFFFFFFFF);
   LETIMER_CompareSet(LETIMER0, 1, target_tick);
   LETIMER_IntEnable(LETIMER0, LETIMER_IEN_COMP1);
