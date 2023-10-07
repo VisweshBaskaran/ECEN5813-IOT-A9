@@ -10,11 +10,11 @@
 
 
 #include "src/ble.h"
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 
 //Macros
-#define LOG_CONNECTION_PARAMETERS 1
+//#define LOG_CONNECTION_PARAMETERS 1
 
 //Variables required
 ble_data_struct_t ble_data_ptr;
