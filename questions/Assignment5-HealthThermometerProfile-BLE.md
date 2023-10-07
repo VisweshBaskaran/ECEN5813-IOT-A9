@@ -32,9 +32,9 @@ See [Mastering Markdown](https://guides.github.com/features/mastering-markdown/)
 
 6. If possible, provide screen shot verifying the slave latency matches what was reported when you logged the values from event = gecko_evt_le_connection_parameters_id. 
    Answer: In the below screenshots, in the first one we can see that the peek current is 10.67 mA and in the second one it is 10.94 mA. This increase in current 
-           corresponds to a successful indication being sent, and we can see that in the second image there is a small hump (referred by the circle) this is the part where the indication is sent in the code. 
+           corresponds to a successful indication being sent, and we can see that in the second image there is a small hump (referred by the circle) this is the part where the indication is packed. 
            Since all this happens between one connection interval, no connections intervals are skipped and therefore the slave latency is 0 as logged below. The client side slave latency is set to 0 and 
-           server side slave latency is set to 0 in the code but that is not used.
+           server side slave latency is set to 4 in the code but that is not used.
             
            Credit: Arrived at the answer with the help of Aditi Vijay Nanaware
    <br>Screenshot:  
