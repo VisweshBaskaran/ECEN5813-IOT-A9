@@ -26,7 +26,6 @@ uint16_t log_timeout, log_latency, log_interval;
 
 //htm temperature variables
 uint8_t htm_temperature_buffer[5];
-uint8_t *p = htm_temperature_buffer;
 uint32_t htm_temperature_flt;
 uint8_t flags = 0x00;
 int32_t temperature_in_c;
@@ -249,6 +248,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
  */
 void ble_write_temp_from_si7021(void)
 {
+  uint8_t *p = htm_temperature_buffer;    // HG - Fixed bug with inconsistent address pointing
   ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   UINT8_TO_BITSTREAM(p, flags);
   temperature_in_c = read_temp_from_si7021();
