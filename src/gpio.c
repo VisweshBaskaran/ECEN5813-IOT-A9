@@ -92,3 +92,19 @@ void si7021SetOff()
   GPIO_PinOutClear(SI7021_port, SI7021_pin);
 }
 
+void LCDSetOn()
+{
+  GPIO_PinOutSet(LCD_port, LCD_pin);
+}
+void LCDSetoff()
+{
+  GPIO_PinOutClear(LCD_port, LCD_pin);
+}
+void gpioSetDisplayExtcomin(bool last_extcomin_state_high)
+{
+  if(last_extcomin_state_high)
+    LCDSetOn();
+  else if(!last_extcomin_state_high)
+    LCDSetoff();
+}
+

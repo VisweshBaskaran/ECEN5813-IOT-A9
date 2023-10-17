@@ -14,7 +14,8 @@
  * Student edit: Add your name and email address here:
  * @student    Visweshwaran Baskaran, viswesh.baskaran@colorado.edu
  *
- * @reference 1) To access port: https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
+ * @reference 1) https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
+ *            2) https://www.silabs.com/documents/public/user-guides/ug279-brd4104a-user-guide.pdf
  
  */
 
@@ -33,11 +34,12 @@
 //Macros
 // Reference [1]
 #define LED_port   (gpioPortF)
+#define LCD_port (gpioPortD)
 #define SI7021_port (gpioPortD)
 #define LED0_pin   (4)
 #define LED1_pin   (5)
 #define SI7021_pin (15)
-
+#define LCD_pin   (13) //PD13 DISP_EXTCOMIN [2]
 //Header files
 #include <stdbool.h>
 #include "em_gpio.h"
@@ -48,10 +50,12 @@ void gpioInit();
 void gpioLed0SetOn();
 void gpioLed0SetOff();
 void gpioLed1SetOn();
+void LCDSetOn();
+void LCDSetoff();
 void gpioLed1SetOff();
 void si7021SetOn();
 void si7021SetOff();
-
+void gpioSetDisplayExtcomin(bool last_extcomin_state_high);
 
 
 

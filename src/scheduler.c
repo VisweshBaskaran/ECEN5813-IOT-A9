@@ -125,11 +125,10 @@ uint32_t getNextEvent(void)
  */
 void temperature_state_machine(sl_bt_msg_t *evt)
 {
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   State_t currentState;
   static State_t nextState = IDLE;
   currentState = nextState;
-  if((SL_BT_MSG_ID(evt->header) == sl_bt_evt_system_external_signal_id) && (ble_data_ptr->connection_open == true) && (ble_data_ptr->ok_to_send_htm_indications == true))
+  if((SL_BT_MSG_ID(evt->header) == sl_bt_evt_system_external_signal_id)) //removed double check for connection is open and ok_to_send indications are true from A5
     {
       switch(currentState)
       {
@@ -141,7 +140,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             {
               nextState = WAIT_FOR_STABILIZE;
               // Enable the si7021 sensor and wait for stabilization
-              si7021SetOn();
+              //si7021SetOn(); /*Enabled in displayInit() for A6*
               timerwaitUs_interrupt(80000);
             }
           break;
@@ -194,7 +193,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
               // and read temperature from si7021
               NVIC_DisableIRQ(I2C0_IRQn);
               sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
-              si7021SetOff();
+              //si7021SetOff();
               ble_write_temp_from_si7021();
             }
           break;

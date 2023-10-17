@@ -107,6 +107,7 @@ SL_WEAK void app_init(void)
   // This is called once during start-up.
   // Don't call any Bluetooth API functions until after the boot event.
   gpioInit();
+  displayInit();
   oscInit();
   letimer0Init();
   i2cInit();

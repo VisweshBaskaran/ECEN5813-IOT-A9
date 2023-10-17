@@ -1,5 +1,5 @@
 /*
- * File name: ble.h
+ * File name: ble.c
  * File description: This file declares the BLE APIs
  * Date: 04-Oct-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
@@ -10,7 +10,7 @@
 
 
 #include "src/ble.h"
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 
 //Macros
@@ -82,6 +82,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
           LOG_ERROR("sl_bt_system_get_identity_address() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
 
+
       /*
        * Create an advertising set. The handle of the created advertising set is
        * returned in response.
@@ -107,6 +108,16 @@ void handle_ble_event(sl_bt_msg_t *evt)
         {
           LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
+
+
+      displayPrintf(DISPLAY_ROW_NAME, "Server");
+      displayPrintf(DISPLAY_ROW_BTADDR, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    ble_data_ptr->myAddress.addr[0], ble_data_ptr->myAddress.addr[1],
+                    ble_data_ptr->myAddress.addr[2], ble_data_ptr->myAddress.addr[3],
+                    ble_data_ptr->myAddress.addr[4], ble_data_ptr->myAddress.addr[5]);
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
+      displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A6");
+
       break;
       //This event indicates that a new connection was opened.
     case sl_bt_evt_connection_opened_id:
@@ -140,6 +151,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
         {
           LOG_ERROR("sl_bt_connection_set_parameters() returned != 0 status=0x%04x", (unsigned int) sc);
         }
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
 
       break;
       //This event indicates that a connection was closed.
@@ -151,6 +163,8 @@ void handle_ble_event(sl_bt_msg_t *evt)
         {
           LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x", (unsigned int) sc);
         }
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
+      displayPrintf(DISPLAY_ROW_TEMPVALUE,"");
       break;
       //Informational. Triggered whenever the connection parameters are changed and at any time a connection is established
     case sl_bt_evt_connection_parameters_id:
@@ -174,6 +188,10 @@ void handle_ble_event(sl_bt_msg_t *evt)
        * A local Client Characteristic Configuration descriptor (CCCD) was changed by the remote GATT client, or
        * That a confirmation from the remote GATT Client was received upon a successful reception of the indication I.e. we sent an indication from our server to the client with sl_bt_gatt_server_send_indication()
        */
+    case sl_bt_evt_system_soft_timer_id:
+          //This event indicates that soft timer has expired.
+          displayUpdate();
+          break;
 
     case sl_bt_evt_gatt_server_characteristic_status_id:
 
@@ -215,11 +233,13 @@ void handle_ble_event(sl_bt_msg_t *evt)
           if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_disable)
             {
               ble_data_ptr->ok_to_send_htm_indications = false;
+              displayPrintf(DISPLAY_ROW_TEMPVALUE,"");
             }
           //sl_bt_api.h line 3735: sl_bt_gatt_client_config_flag_t sl_bt_gatt_indication = 0x02
           else if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_indication)
             {
               ble_data_ptr->ok_to_send_htm_indications = true;
+
             }
         }
       //sl_bt_api.h line 5302 sl_bt_gatt_server_characteristic_status_flag_t sl_bt_gatt_server_confirmation  = 0x2
@@ -230,7 +250,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
       break;
 
     case sl_bt_evt_gatt_server_indication_timeout_id:
-      LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x", (unsigned int) sc);
+      LOG_ERROR("Indication timed out\n\r");
       ble_data_ptr->indication_inflight = false; //indication reached
       break;
   } // end - switch
@@ -284,7 +304,8 @@ void ble_write_temp_from_si7021(void)
       else
         {
           ble_data_ptr->indication_inflight = true;
-          //LOG_INFO("Temp=%d\n\r", temperature_in_c);
+          displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
+          //LOG_INFO("Temp in c: %d\n\r", temperature_in_c);
         }
     }
 } //ble_write_temp_from_si7021()
