@@ -1,10 +1,13 @@
 /*
  * File name: scheduler.c
  * File description: This file defines the APIs that schedules the interrupts according to required priority scheme
- * Date: 21-Sep-2023
+ * Date created: 21-Sep-2023
+ * Updates:
+ *         23-Oct-2023 Added discovery state machine for BLE client functionality
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
+ *    [1] ECEN5823 IOT Embedded Firmware lecture slides
+ *    [2] Health Thermometer Characteristic and Descriptor descriptions: https://www.bluetooth.com/specifications/assigned-numbers/
  */
 //#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
@@ -15,9 +18,21 @@ typedef enum
   WAIT_FOR_STABILIZE,
   I2C_WRITE,
   WAIT_FOR_CONVERSION,
-  I2C_READ
-} State_t;
+  I2C_READ,
+} Server_State_t; //States for temperature state machine
 
+typedef enum
+{
+  IDLE_CLIENT,
+  SERVICE_DISCOVERED,
+  CHARACTERISTICS_DISCOVERED,
+  INDICATION_ENABLED,
+  WAIT_FOR_CLOSE
+}Client_State_t; //States for discovery state machine
+
+
+const uint8_t ServiceUUID[2] = {0x09,0x18};
+const uint8_t CharacteristicUUID[2] = {0x1c, 0x2a}; //[2]
 uint32_t myEvents = CLEAR_EVENT;
 
 /*
@@ -123,17 +138,18 @@ uint32_t getNextEvent(void)
  *
  * @returns none
  */
+#if (DEVICE_IS_BLE_SERVER == 1)
 void temperature_state_machine(sl_bt_msg_t *evt)
 {
-  State_t currentState;
-  static State_t nextState = IDLE;
+  Server_State_t currentState;
+  static Server_State_t nextState = IDLE;
   currentState = nextState;
   if((SL_BT_MSG_ID(evt->header) == sl_bt_evt_system_external_signal_id)) //removed double check for connection is open and ok_to_send indications are true from A5
     {
       switch(currentState)
       {
         case IDLE:
-         // LOG_INFO("Entered Idle state\n\r");
+          // LOG_INFO("Entered Idle state\n\r");
           nextState = IDLE; //default
           // Transition to WAIT_FOR_STABILIZE when LETIMER0_UF event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_UF)
@@ -145,7 +161,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case WAIT_FOR_STABILIZE:
-         //LOG_INFO("Entered wait_statbilize state\n\r");
+          //LOG_INFO("Entered wait_statbilize state\n\r");
           nextState = WAIT_FOR_STABILIZE; //default
           // Transition to I2C_WRITE when LETIMER0_COMP1 event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_COMP1)
@@ -171,7 +187,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case WAIT_FOR_CONVERSION:
-         //LOG_INFO("Entered wait_conversion state\n\r");
+          //LOG_INFO("Entered wait_conversion state\n\r");
           nextState = WAIT_FOR_CONVERSION; //default
           // Transition to I2C_READ when LETIMER0_COMP1 event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtLETIMER0_COMP1)
@@ -183,7 +199,7 @@ void temperature_state_machine(sl_bt_msg_t *evt)
             }
           break;
         case I2C_READ:
-         //LOG_INFO("Entered Read state\n\r");
+          //LOG_INFO("Entered Read state\n\r");
           nextState = I2C_READ; //default
           // Transition to IDLE when I2C_Transfer_Complete event occurs
           if(evt->data.evt_system_external_signal.extsignals == evtI2C_Transfer_Complete)
@@ -200,6 +216,89 @@ void temperature_state_machine(sl_bt_msg_t *evt)
       }
     }
 }
+
+#else
+/**
+ * @brief This function implements a state machine to handle BLE service discovery
+ *
+ * @param evt Pointer to the Bluetooth event message.
+ *
+ * @returns none
+ */
+void discovery_state_machine(sl_bt_msg_t *evt)
+{
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  Client_State_t currentState;
+  static Client_State_t nextState = IDLE_CLIENT;
+  currentState = nextState;
+  sl_status_t sc = SL_STATUS_OK;
+  switch(currentState)
+  {
+    case IDLE_CLIENT:
+      nextState = IDLE_CLIENT;  //default state
+      // Check if a connection has been opened.
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_opened_id)
+        {
+          // Discover primary services with health thermometer service UUID.
+          sc = sl_bt_gatt_discover_primary_services_by_uuid(ble_data_ptr->connection_handle,
+                                                            sizeof(ServiceUUID),
+                                                            (const uint8_t*)ServiceUUID);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
+          }
+          nextState = SERVICE_DISCOVERED;
+        }
+      break;
+    case SERVICE_DISCOVERED:
+      nextState = SERVICE_DISCOVERED;  //default state
+      // Check if a GATT procedure has been completed (service discovery in this case).
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          // Discover characteristics for health thermometer UUID within the previously discovered service.
+          sc = sl_bt_gatt_discover_characteristics_by_uuid(ble_data_ptr->connection_handle,
+                                                           ble_data_ptr->service_handle,
+                                                           sizeof(CharacteristicUUID),
+                                                           (const uint8_t*)CharacteristicUUID);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_discover_characteristics_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
+          }
+          nextState = CHARACTERISTICS_DISCOVERED;
+        }
+      break;
+    case CHARACTERISTICS_DISCOVERED:
+      nextState = CHARACTERISTICS_DISCOVERED;  //default state
+      // Check if a GATT procedure has been completed (characteristic discovery in this case).
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          // Set up characteristic notification for indications.
+          sc = sl_bt_gatt_set_characteristic_notification(ble_data_ptr->connection_handle,
+                                                          ble_data_ptr->characteristic_handle,
+                                                          sl_bt_gatt_indication);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_set_characteristic_notification() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          }
+          nextState = INDICATION_ENABLED;
+        }
+      break;
+    case INDICATION_ENABLED:
+      nextState = INDICATION_ENABLED;  //default state
+      // Check if a GATT procedure has been completed (indication setup in this case).
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          nextState = WAIT_FOR_CLOSE;
+          displayPrintf(DISPLAY_ROW_CONNECTION, "Handling indications");
+        }
+      break;
+    case WAIT_FOR_CLOSE:
+      nextState = WAIT_FOR_CLOSE; //default state
+      // Check if the connection has been closed.
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_closed_id)
+        nextState = IDLE_CLIENT;
+      break;
+  }
+}
+#endif
+
 
 
 

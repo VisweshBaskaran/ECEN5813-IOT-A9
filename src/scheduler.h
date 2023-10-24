@@ -4,7 +4,7 @@
  * Date: 21-Sep-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5813 IOT Embedded Firmware lecture slides weeks 3-4
+ *    [1] ECEN5823 IOT Embedded Firmware lecture slides weeks 3-4
  */
 
 #ifndef SRC_SCHEDULER_H_
@@ -63,5 +63,14 @@ uint32_t getNextEvent(void);
  * @returns none
  */
 void temperature_state_machine(sl_bt_msg_t *evt);
+/**
+ * @brief This function implements a state machine to handle BLE service discovery
+ *
+ * @param evt, pointer to the Bluetooth event message.
+ *
+ * @returns none
+ */
+void discovery_state_machine(sl_bt_msg_t *evt);
+
 
 #endif /* SRC_SCHEDULER_H_ */

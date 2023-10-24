@@ -4,8 +4,11 @@
  * Date: 04-Oct-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *  [1] ECEN5813 IOT Embedded Firmware lecture slides week 5
+ *  [1] ECEN5823 IOT Embedded Firmware lecture slides week 5
  *  [2] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
+ *
+ *  Credit:
+ *  Client section of handle ble event: flag updates in each event and code under case sl_bt_evt_gatt_characteristic_value_id were received from Aditi Vijay Nanaware.
  */
 
 
@@ -18,17 +21,27 @@
 
 //Variables required
 ble_data_struct_t ble_data_ptr;
+
 uint32_t advertising_interval_max = 0x190, advertising_interval_min = 0x190; //Set the Advertising minimum and maximum to 250mS. 250/0.625 = 400 = 0x190
 uint16_t connection_interval_max = 0x3c, connection_interval_min = 0x3c; //Set Connection Interval minimum and maximum to 75mS. 75/1.25 =60 = 0x3c
 uint16_t peripheral_latency = 4;
-uint16_t supervision_timeout = 0x4c; //(peripheral_latency+1)*(connection_interval * 2) = 750ms/10 = 0x4b;
+uint16_t supervision_timeout = 0x53; //(peripheral_latency+1)*(connection_interval * 2) + connection interval max = 825ms, approximated to 830 for integer quotient;
 uint16_t log_timeout, log_latency, log_interval;
+
+#if DEVICE_IS_BLE_SERVER == 0
+uint8_t scan_interval = 0x50; //0.625 x 80 = 50
+uint8_t scan_window = 0x28; //0.625 x 40 = 25
+bd_addr serverAddress = SERVER_BT_ADDRESS;
+
+#endif
+
 
 //htm temperature variables
 uint8_t htm_temperature_buffer[5];
 uint32_t htm_temperature_flt;
 uint8_t flags = 0x00;
 int32_t temperature_in_c;
+
 
 /**
  * @brief Get a pointer to the BLE data structure.
@@ -43,19 +56,20 @@ ble_data_struct_t *get_ble_data_ptr(void)
 }
 
 /**
- * @brief This function reads temperature data from the SI7021 sensor, converts it to IEEE-11073 format,
- *        and writes it to the specified GATT characteristic in the BLE GATT server
+ * @brief Handle Bluetooth Low Energy (BLE) events, including device boot, connection management,
+ * and GATT (Generic Attribute Profile) operations for both clients and servers.
  *
- * @param none
+ * @param evt - Pointer to the BLE event message.
  *
  * @returns none
  *
- * @reference ECEN5823 Lecture 10 slides
+ * @reference ECEN5823 Lecture 10,12 slides
  */
 void handle_ble_event(sl_bt_msg_t *evt)
 {
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   sl_status_t sc = SL_STATUS_OK;
+#if DEVICE_IS_BLE_SERVER
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   switch (SL_BT_MSG_ID(evt->header))
   {
     // ******************************************************
@@ -81,8 +95,6 @@ void handle_ble_event(sl_bt_msg_t *evt)
         {
           LOG_ERROR("sl_bt_system_get_identity_address() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
         }
-
-
       /*
        * Create an advertising set. The handle of the created advertising set is
        * returned in response.
@@ -116,7 +128,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
                     ble_data_ptr->myAddress.addr[2], ble_data_ptr->myAddress.addr[3],
                     ble_data_ptr->myAddress.addr[4], ble_data_ptr->myAddress.addr[5]);
       displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
-      displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A6");
+      displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
 
       break;
       //This event indicates that a new connection was opened.
@@ -146,7 +158,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
                                            connection_interval_min,
                                            connection_interval_max,
                                            peripheral_latency,
-                                           supervision_timeout, 0,0);
+                                           supervision_timeout, 0,4);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_connection_set_parameters() returned != 0 status=0x%04x", (unsigned int) sc);
@@ -156,6 +168,7 @@ void handle_ble_event(sl_bt_msg_t *evt)
       break;
       //This event indicates that a connection was closed.
     case sl_bt_evt_connection_closed_id:
+      ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->connection_open = false;
       /* Start advertising of a given advertising set with specified discoverable and connectable modes. */
       sc = sl_bt_advertiser_start(ble_data_ptr->advertisingSetHandle,sl_bt_advertiser_general_discoverable,sl_bt_advertiser_connectable_scannable);
@@ -180,6 +193,10 @@ void handle_ble_event(sl_bt_msg_t *evt)
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
     case sl_bt_evt_system_external_signal_id:
       break;
+    case sl_bt_evt_system_soft_timer_id:
+      //This event indicates that soft timer has expired.
+      displayUpdate();
+      break;
       /********************************/
       /*Events only for Slaves/Servers*/
       /********************************/
@@ -188,10 +205,6 @@ void handle_ble_event(sl_bt_msg_t *evt)
        * A local Client Characteristic Configuration descriptor (CCCD) was changed by the remote GATT client, or
        * That a confirmation from the remote GATT Client was received upon a successful reception of the indication I.e. we sent an indication from our server to the client with sl_bt_gatt_server_send_indication()
        */
-    case sl_bt_evt_system_soft_timer_id:
-          //This event indicates that soft timer has expired.
-          displayUpdate();
-          break;
 
     case sl_bt_evt_gatt_server_characteristic_status_id:
 
@@ -253,9 +266,227 @@ void handle_ble_event(sl_bt_msg_t *evt)
       LOG_ERROR("Indication timed out\n\r");
       ble_data_ptr->indication_inflight = false; //indication reached
       break;
-  } // end - switch
+  } // end - switch for SERVER
+
+#else
+
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  switch (SL_BT_MSG_ID(evt->header))
+  {
+    // ******************************************************
+    // Events common to both Servers and Clients
+    // ******************************************************
+    // --------------------------------------------------------
+    // This event indicates the device has started and the radio is ready.
+    // Do not call any stack API commands before receiving this boot event!
+    // Including starting BT stack soft timers!
+    // --------------------------------------------------------
+    case sl_bt_evt_system_boot_id:
+      ble_data_ptr->gatt_procedure_complete = false;
+      ble_data_ptr->connection_open = false;
+      /* Read the Bluetooth identity address used by the device, which can be a public or random static device address. */
+      sc = sl_bt_system_get_identity_address(&ble_data_ptr->myAddress, &ble_data_ptr->myAddressType);
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_system_get_identity_address() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+      /*
+       *  Set the scan mode on the specified PHYs. If the device is currently scanning
+       *  for advertising devices on PHYs, new parameters will take effect when
+       *  scanning is restarted
+       *  @param[in] scan_mode @parblock
+       *   Scan mode. Values:
+       *     - <b>0:</b> Passive scanning
+       *     - <b>1:</b> Active scanning
+       */
+      sc = sl_bt_scanner_set_mode(sl_bt_gap_1m_phy,0x00); //second argument: 0 Passive scanning
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_scanner_set_mode() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+      /*
+       * Set the scanning timing parameters on the specified PHYs. If the device is
+       * currently scanning for advertising devices on PHYs, new parameters will take
+       * effect when scanning is restarted.
+       */
+      sc = sl_bt_scanner_set_timing(sl_bt_gap_1m_phy, scan_interval ,scan_window);
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_scanner_set_timing() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+      /*
+       *  Set the default Bluetooth connection parameters. The values are valid for all
+       *  subsequent connections initiated by this device.
+       */
+      sc = sl_bt_connection_set_default_parameters(connection_interval_min, connection_interval_max,  peripheral_latency,
+                                                   supervision_timeout, 0,4);
+      /*
+       * Start the GAP discovery procedure to scan for advertising devices on the
+       * specified scanning PHYs
+       */
+      sc = sl_bt_scanner_start(sl_bt_gap_1m_phy, sl_bt_scanner_discover_generic);
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_scanner_start() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+      displayPrintf(DISPLAY_ROW_NAME, "Client");
+      displayPrintf(DISPLAY_ROW_BTADDR, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    ble_data_ptr->myAddress.addr[0], ble_data_ptr->myAddress.addr[1],
+                    ble_data_ptr->myAddress.addr[2], ble_data_ptr->myAddress.addr[3],
+                    ble_data_ptr->myAddress.addr[4], ble_data_ptr->myAddress.addr[5]);
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
+      displayPrintf(DISPLAY_ROW_ASSIGNMENT,"A7");
+      break;
+      //This event indicates that a new connection was opened.
+    case sl_bt_evt_connection_opened_id:
+      ble_data_ptr->gatt_procedure_complete = false;
+      ble_data_ptr->connection_open = true;
+      ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection; //saving connection handle
+
+      displayPrintf(DISPLAY_ROW_BTADDR2, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    serverAddress.addr[0],serverAddress.addr[1],
+                    serverAddress.addr[2],serverAddress.addr[3],
+                    serverAddress.addr[4],serverAddress.addr[5]);
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
+
+      break;
+      //This event indicates that a connection was closed.
+    case sl_bt_evt_connection_closed_id:
+
+      ble_data_ptr->gatt_procedure_complete = false;
+      ble_data_ptr->connection_open = false;
+      ble_data_ptr->ok_to_send_htm_indications = false;
+
+      displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
+      displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
+      displayPrintf(DISPLAY_ROW_BTADDR2,"");
+      displayPrintf(DISPLAY_ROW_ASSIGNMENT,"A7");
+      /*Start the GAP discovery procedure to scan for advertising devices on the
+       * specified scanning PHYs
+       */
+      sc = sl_bt_scanner_start(sl_bt_gap_1m_phy, sl_bt_scanner_discover_generic);
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_scanner_start() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+
+      break;
+      //This event indicates that a soft timer has expired.
+    case sl_bt_evt_system_soft_timer_id:
+      displayUpdate();
+      break;
+
+      /*********************************/
+      /*Events only for Masters/Clients*/
+      /*********************************/
+      /*
+       * Received for advertising or scan response packets generated by: sl_bt_scanner_start().
+       */
+    case sl_bt_evt_scanner_scan_report_id:
+      /*
+       * PACKSTRUCT( struct sl_bt_evt_scanner_scan_report_s
+       * {
+       * uint8_t    packet_type;       < <b>Bits 0..2</b> : advertising packet type
+                                       - <b>000</b> : Connectable scannable
+                                         undirected advertising
+                                       - <b>001</b> : Connectable undirected
+                                         advertising
+                                       - <b>010</b> : Scannable undirected
+                                         advertising
+                                       - <b>011</b> : Non-connectable
+                                         non-scannable undirected advertising
+                                       - <b>100</b> : Scan Response. Note that
+                                         this is received only if the device is
+                                         in active scan mode.
+
+                                     <b>Bits 3..4</b> : Reserved for future
+
+                                     <b>Bits 5..6</b> : data completeness
+                                       - <b>00:</b> Complete
+                                       - <b>01:</b> Incomplete, more data to
+                                         come in new events
+                                       - <b>10:</b> Incomplete, data truncated,
+                                         no more to come
+
+                                     <b>Bit 7</b> : legacy or extended
+                                     advertising
+                                       - <b>0:</b> Legacy advertising PDUs used
+                                       - <b>1:</b> Extended advertising PDUs
+                                         used
+      bd_addr    address;           < Bluetooth address of the remote device
+      uint8_t    address_type;      < Advertiser address type. Values:
+                                       - <b>0:</b> Public address
+                                       - <b>1:</b> Random address
+                                       - <b>255:</b> No address provided
+                                         (anonymous advertising)
+      .....}*/
+      if(evt->data.evt_scanner_scan_report.address_type == 0x00 && evt->data.evt_scanner_scan_report.packet_type == 0x00)       //Address type = Public address, Packet type = Connectable scannable undirected advertising
+        {
+          if((evt->data.evt_scanner_scan_report.address.addr[0] == serverAddress.addr[0]) &&
+              (evt->data.evt_scanner_scan_report.address.addr[1] == serverAddress.addr[1]) &&
+              (evt->data.evt_scanner_scan_report.address.addr[2] == serverAddress.addr[2]) &&
+              (evt->data.evt_scanner_scan_report.address.addr[3] == serverAddress.addr[3]) &&
+              (evt->data.evt_scanner_scan_report.address.addr[4] == serverAddress.addr[4]) &&
+              (evt->data.evt_scanner_scan_report.address.addr[5] == serverAddress.addr[5]))
+            {
+              // Stop scanning for advertising devices
+              sc = sl_bt_scanner_stop();
+              if (sc != SL_STATUS_OK)
+                {
+                  LOG_ERROR("sl_bt_scanner_stop() returned != 0 status=0x%04x", (unsigned int) sc);
+                }
+              /*
+               * Connect to an advertising device with the specified initiating PHY on which
+               * connectable advertisements on primary advertising channels are received. The
+               * Bluetooth stack will enter a state where it continuously scans for the
+               * connectable advertising packets from the remote device, which matches the
+               * Bluetooth address given as a parameter
+               */
+              sc = sl_bt_connection_open(evt->data.evt_scanner_scan_report.address,
+                                         evt->data.evt_scanner_scan_report.address_type,
+                                         sl_bt_gap_1m_phy,
+                                         &ble_data_ptr->connection_handle);
+              if (sc != SL_STATUS_OK)
+                {
+                  LOG_ERROR("sl_bt_connection_open() returned != 0 status=0x%04x", (unsigned int) sc);
+                }
+            }
+        }
+      break;
+      /*We get this event when it’s ok to call the next GATT command*/
+    case sl_bt_evt_gatt_procedure_completed_id:
+      ble_data_ptr->gatt_procedure_complete = true;
+      break;
+      /*A GATT service in the remote GATT database was discovered*/
+    case sl_bt_evt_gatt_service_id:
+      ble_data_ptr->service_handle  = evt->data.evt_gatt_service.service;
+      break;
+      /*A GATT characteristic in the remote GATT database was discovered*/
+    case sl_bt_evt_gatt_characteristic_id:
+      ble_data_ptr->characteristic_handle = evt->data.evt_gatt_characteristic.characteristic;
+      break;
+      /*
+       * If an indication or notification has been enabled for a characteristic, this event is
+       * triggered whenever an indication or notification is received from the remote GATT server.
+       */
+    case sl_bt_evt_gatt_characteristic_value_id:
+      //Credit: sl_bt_evt_gatt_characteristic_value_id event handler code was received from Aditi Vijay Nanaware
+      ble_data_ptr->Temperature = FLOAT_TO_INT32(evt->data.evt_gatt_characteristic_value.value.data);
+      sc = sl_bt_gatt_send_characteristic_confirmation(ble_data_ptr->connection_handle);
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_gatt_send_characteristic_confirmation() returned != 0 status=0x%04x", (unsigned int) sc);
+        }
+      displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data_ptr->Temperature);
+      break;
+
+
+  }//end switch for CLIENT
+#endif
+
 } // handle_ble_event()
 
+#if DEVICE_IS_BLE_SERVER
 /**
  * @brief This function reads temperature data from the SI7021 sensor, converts it to IEEE-11073 format,
  *        and writes it to the specified GATT characteristic in the BLE GATT server
@@ -310,3 +541,33 @@ void ble_write_temp_from_si7021(void)
     }
 } //ble_write_temp_from_si7021()
 
+#else
+/**
+ * Convert a Little Endian formatted floating-point value to a 32-bit signed integer.
+ * @param value_start_little_endian - Pointer to the Little Endian formatted data.
+ * @return A 32-bit signed integer representing the converted value.
+ * @reference Assignment 7 document
+ */
+int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian)
+{
+  uint8_t mantissaSignByte = 0; // these bits will become the upper 8-bits of the mantissa
+  int32_t mantissa; // this holds the 24-bit mantissa value with the upper 8-bits as sign bits
+  // input data format is:
+  // [0] = flags byte
+  // [3][2][1] = mantissa (2's complement)
+  // [4] = exponent (2's complement)
+  // BT value_start_little_endian[0] has the flags byte
+  int8_t exponent = (int8_t)value_start_little_endian[4]; // the exponent is a signed 2’s comp value
+  // sign extend the mantissa value if the mantissa is negative
+  if (value_start_little_endian[3] & 0x80) { // msb of [3] is the sign of the mantissa
+      mantissaSignByte = 0xFF;
+  }
+  // assemble the mantissa
+  mantissa = (int32_t) (value_start_little_endian[1] << 0) |
+      (value_start_little_endian[2] << 8) |
+      (value_start_little_endian[3] << 16) |
+      (mantissaSignByte << 24) ;
+  // value = 10^exponent * mantissa; pow() returns a double type
+  return (int32_t) (pow( (double) 10, (double) exponent) * (double) mantissa);
+} // FLOAT_TO_INT32()
+#endif

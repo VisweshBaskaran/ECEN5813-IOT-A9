@@ -4,13 +4,14 @@
  * Date: 10-Oct-2023
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *  [1] ECEN5813 IOT Embedded Firmware lecture slides week 5
+ *  [1] ECEN5823 IOT Embedded Firmware lecture slides week 5
  *  [2] Silicon Labs Developer Documentation https://docs.silabs.com/gecko-platform/4.3/platform-emlib-efr32xg1/
  */
 #ifndef SRC_BLE_H_
 #define SRC_BLE_H_
 
 #include "app.h"
+#include <math.h> // need function prototype for pow()
 
 //Helper macros
 #define UINT8_TO_BITSTREAM(p, n) { *(p)++ = (uint8_t)(n); }
@@ -34,6 +35,12 @@ typedef struct
   bool connection_open;
   bool ok_to_send_htm_indications;;
   bool indication_inflight;
+
+  // values unique for client
+  uint32_t Temperature; //for storing characteristic value return
+  uint32_t service_handle;
+  uint16_t characteristic_handle;
+  bool gatt_procedure_complete;
 }ble_data_struct_t;
 
 //Function macros
@@ -48,14 +55,14 @@ typedef struct
 ble_data_struct_t *get_ble_data_ptr(void);
 
 /**
- * @brief This function reads temperature data from the SI7021 sensor, converts it to IEEE-11073 format,
- *        and writes it to the specified GATT characteristic in the BLE GATT server
+ * @brief Handle Bluetooth Low Energy (BLE) events, including device boot, connection management,
+ * and GATT (Generic Attribute Profile) operations for both clients and servers.
  *
- * @param none
+ * @param evt - Pointer to the BLE event message.
  *
  * @returns none
  *
- * @reference ECEN5823 Lecture 10 slides
+ * @reference ECEN5823 Lecture 10,12 slides
  */
 void handle_ble_event(sl_bt_msg_t *evt);
 
@@ -70,4 +77,11 @@ void handle_ble_event(sl_bt_msg_t *evt);
  * @reference ECEN5823 Lecture 10 slides
  */
 void ble_write_temp_from_si7021(void);
+/**
+ * Convert a Little Endian formatted floating-point value to a 32-bit signed integer.
+ * @param value_start_little_endian - Pointer to the Little Endian formatted data.
+ * @return A 32-bit signed integer representing the converted value.
+ * @reference Assignment 7 document
+ */
+int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian);
 #endif /* SRC_BLE_H_ */
