@@ -78,18 +78,26 @@ void GPIO_EVEN_IRQHandler(void)
   ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   //flag = GPIO_IntGet();
   flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
+
+  //DOS - why did you not use GPIO_IntGetEnabled like we did in LETIMER0_IRQHandler()???
+  //flag = GPIO_IntGet();
+  // DOS bit[6] is PB0 and bit[7] is PB1
+  flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
+
   GPIO_IntClear(flag);
-  uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin);
+
+  uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin); // DOS 0=pressed, 1=released
+
   if (flag & (1 << PB0_pin))
     {
       if (button_state)
         {
-          ble_data_ptr->button_pressed = false;
+          ble_data_ptr->button_pressed = false; // DOS not released
           schedulerSetEventPB0Released();
         }
       else
         {
-          ble_data_ptr->button_pressed = true;
+          ble_data_ptr->button_pressed = true; // DOS is pressed
           schedulerSetEventPB0Pressed();
         }
     }

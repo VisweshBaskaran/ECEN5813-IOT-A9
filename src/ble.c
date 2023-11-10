@@ -19,7 +19,7 @@
 //#define LOG_CONNECTION_PARAMETERS 1
 
 //Variables required
-ble_data_struct_t ble_data_ptr;
+ble_data_struct_t ble_data_ptr; // DOS this isn't a pointer to the data, its the actual data !!!
 queue_struct_t indication_queue;
 uint8_t button_state[2];
 
@@ -295,10 +295,16 @@ void handle_ble_event (sl_bt_msg_t *evt)
           log_interval, log_latency,log_timeout);
 #endif
       break;
+
+
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
       /*Credit: sl_bt_evt_system_external_signal_id code leveraged from Aditi Vijay Nanaware's A8 submission*/
     case sl_bt_evt_system_external_signal_id:
       LOG_INFO("sl_bt_evt_system_external_signal_id\n\r");
+
+      // DOS This code looks excessively complex, difficult to determine what is supposed to happen.
+      // Perhaps some design first might help, something like this (and yes, it can be as easy as creating
+      // comments to use as an outline.
       // ------------------------------------------
       // Deal with GATT DB and button indications
       // ------------------------------------------
@@ -454,6 +460,8 @@ void handle_ble_event (sl_bt_msg_t *evt)
 
       /***********************/
       /* if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
+
+      if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
         {
           button_state[0] = 0;
           button_state[1] = 1;
