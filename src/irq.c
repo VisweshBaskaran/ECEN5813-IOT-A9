@@ -76,7 +76,8 @@ void GPIO_EVEN_IRQHandler(void)
 {
   uint32_t flag;
   ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
-  flag = GPIO_IntGet();
+  //flag = GPIO_IntGet();
+  flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
   GPIO_IntClear(flag);
   uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin);
   if (flag & (1 << PB0_pin))
@@ -85,15 +86,11 @@ void GPIO_EVEN_IRQHandler(void)
         {
           ble_data_ptr->button_pressed = false;
           schedulerSetEventPB0Released();
-          //gpioLed1SetOff();
-          //gpioLed0SetOn();
         }
       else
         {
           ble_data_ptr->button_pressed = true;
           schedulerSetEventPB0Pressed();
-          //gpioLed1SetOn();
-          //gpioLed0SetOff();
         }
     }
 }

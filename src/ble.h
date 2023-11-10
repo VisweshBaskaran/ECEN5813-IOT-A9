@@ -60,6 +60,7 @@ typedef struct
   bool ok_to_send_htm_indications;
   bool indication_inflight;
   //PB0
+  bool passkey_available;
   bool ok_to_send_PB0_indications;
   bool bonding_flag;
   bool button_pressed;
