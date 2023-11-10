@@ -19,7 +19,7 @@
 //#define LOG_CONNECTION_PARAMETERS 1
 
 //Variables required
-ble_data_struct_t ble_data_ptr;
+ble_data_struct_t ble_data_ptr; // DOS this isn't a pointer to the data, its the actual data !!!
 queue_struct_t indication_queue;
 uint8_t button_state[2];
 
@@ -291,9 +291,43 @@ void handle_ble_event (sl_bt_msg_t *evt)
           log_interval, log_latency,log_timeout);
 #endif
       break;
+
+
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
     /*Credit: sl_bt_evt_system_external_signal_id code leveraged from Aditi Vijay Nanaware's A8 submission*/
     case sl_bt_evt_system_external_signal_id:
+
+      // DOS This code looks excessively complex, difficult to determine what is supposed to happen.
+      // Perhaps some design first might help, something like this (and yes, it can be as easy as creating
+      // comments to use as an outline.
+
+      // ------------------------------------------
+      // Deal with GATT DB and button indications
+      // ------------------------------------------
+      // if evtPB0_pressed event AND ble_data_ptr.button_pressed
+      //
+      //    update GATT DB
+      //
+      //    if conditions are correct to send an indication
+      //       call sl_bt_gatt_server_send_indication()
+      //
+      //    if conditions are correct to send an indication, but there is an indication inflight already,
+      //       then queue the indication for sending later.
+      //
+      // end if - evtPB0_pressed event AND ble_data_ptr.button_pressed
+
+
+      // ---------------------
+      // Deal with Security
+      // ---------------------
+      // if evtPB0_pressed event AND ble_data_ptr.button_pressed, AND
+      //    we have a passkey displayed to the user, AND
+      //    we are not bonded yet, then:
+      //      call sl_bt_sm_passkey_confirm()
+      //      clear the "we have a passkey" variable
+      // end if
+
+
       if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
         {
           button_state[0] = 0;
