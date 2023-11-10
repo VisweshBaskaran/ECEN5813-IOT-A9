@@ -56,6 +56,9 @@ void gpioInit()
   GPIO_DriveStrengthSet(SI7021_port, gpioDriveStrengthWeakAlternateWeak);
   // Set the sensor mode of operation
   GPIO_PinModeSet(SI7021_port, SI7021_pin, gpioModePushPull, false);
+
+  GPIO_PinModeSet(PB0_port, PB0_pin, gpioModeInputPullFilter, true);
+  GPIO_ExtIntConfig (PB0_port, PB0_pin, PB0_pin, true, true, true);
 } // gpioInit()
 
 

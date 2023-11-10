@@ -11,7 +11,6 @@
  *  Client section of handle ble event: flag updates in each event and code under case sl_bt_evt_gatt_characteristic_value_id were received from Aditi Vijay Nanaware.
  */
 
-
 #include "src/ble.h"
 #define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
@@ -21,6 +20,8 @@
 
 //Variables required
 ble_data_struct_t ble_data_ptr;
+queue_struct_t indication_queue;
+uint8_t button_state[2];
 
 uint32_t advertising_interval_max = 0x190, advertising_interval_min = 0x190; //Set the Advertising minimum and maximum to 250mS. 250/0.625 = 400 = 0x190
 uint16_t connection_interval_max = 0x3c, connection_interval_min = 0x3c; //Set Connection Interval minimum and maximum to 75mS. 75/1.25 =60 = 0x3c
@@ -29,12 +30,11 @@ uint16_t supervision_timeout = 0x53; //(peripheral_latency+1)*(connection_interv
 uint16_t log_timeout, log_latency, log_interval;
 
 #if DEVICE_IS_BLE_SERVER == 0
-uint8_t scan_interval = 0x50; //0.625 x 80 = 50
-uint8_t scan_window = 0x28; //0.625 x 40 = 25
+uint8_t scan_interval = 0x50;
+uint8_t scan_window = 0x28;
 bd_addr serverAddress = SERVER_BT_ADDRESS;
 
 #endif
-
 
 //htm temperature variables
 uint8_t htm_temperature_buffer[5];
@@ -43,6 +43,56 @@ uint8_t flags = 0x00;
 int32_t temperature_in_c;
 
 
+
+/*
+ @brief Calculate the next pointer value in a circular buffer
+ @param ptr The current pointer value
+ @return The next pointer value (wrapped around the queue)
+ */
+static uint32_t
+nextPtr (uint32_t ptr)
+{
+  ptr++;
+  ptr = ptr % (QUEUE_DEPTH); //Wrapping around the queue
+  return ptr;
+} // nextPtr()
+
+bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t *buffer)
+{
+  if (nextPtr (indication_queue.wptr) != indication_queue.rptr) //Checking if queue is full
+    {
+      indication_queue.element[indication_queue.wptr].charHandle = charHandle;
+      indication_queue.element[indication_queue.wptr].bufferLength =
+          bufferLength;
+      memcpy (indication_queue.element[indication_queue.wptr].buffer, buffer,
+              bufferLength);
+      indication_queue.wptr = nextPtr (indication_queue.wptr); // write ptr incremented to next position in queue
+      return READ_SUCCESS ;
+    }
+  return READ_FAILURE ;
+} //write_queue()
+bool read_queue (uint16_t *charHandle, size_t *bufferLength, uint8_t *buffer)
+{
+  if (indication_queue.rptr != indication_queue.wptr) //Checking if queue is empty
+    {
+      *charHandle = indication_queue.element[indication_queue.rptr].charHandle;
+      *bufferLength =
+          indication_queue.element[indication_queue.rptr].bufferLength;
+      memcpy (buffer, &indication_queue.element[indication_queue.rptr].buffer,
+              indication_queue.element[indication_queue.rptr].bufferLength);
+
+      indication_queue.rptr = nextPtr (indication_queue.rptr); // read ptr incremented to next position in queue
+      return WRITE_SUCCESS ;
+    }
+  return WRITE_FAILURE ;
+}//read_queue
+
+uint32_t get_queue_depth (void)
+{
+  if (indication_queue.wptr >= indication_queue.rptr)
+    return (indication_queue.wptr - indication_queue.rptr);
+  return (QUEUE_DEPTH - indication_queue.rptr + indication_queue.wptr); //when wptr < rptr
+}
 /**
  * @brief Get a pointer to the BLE data structure.
  *
@@ -50,7 +100,7 @@ int32_t temperature_in_c;
  *
  * @return A pointer to the BLE data structure.
  */
-ble_data_struct_t *get_ble_data_ptr(void)
+ble_data_struct_t* get_ble_data_ptr (void)
 {
   return &ble_data_ptr;
 }
@@ -65,13 +115,13 @@ ble_data_struct_t *get_ble_data_ptr(void)
  *
  * @reference ECEN5823 Lecture 10,12 slides
  */
-void handle_ble_event(sl_bt_msg_t *evt)
+void handle_ble_event (sl_bt_msg_t *evt)
 {
   sl_status_t sc = SL_STATUS_OK;
 #if DEVICE_IS_BLE_SERVER
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr ();
   switch (SL_BT_MSG_ID(evt->header))
-  {
+    {
     // ******************************************************
     // Events common to both Servers and Clients
     // ******************************************************
@@ -85,99 +135,150 @@ void handle_ble_event(sl_bt_msg_t *evt)
       ble_data_ptr->connection_open = false; //false = closed
       ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->indication_inflight = false;
+      ble_data_ptr->bonding_flag = false;
 
       /*
        * Read the Bluetooth identity address used by the device, which can be a public
        * or random static device address.
        */
-      sc = sl_bt_system_get_identity_address(&ble_data_ptr->myAddress, &ble_data_ptr->myAddressType);
+      sc = sl_bt_system_get_identity_address (&ble_data_ptr->myAddress,
+                                              &ble_data_ptr->myAddressType);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_system_get_identity_address() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          LOG_ERROR(
+              "sl_bt_system_get_identity_address() returned != 0 status=0x%04x\n\r",
+              (unsigned int) sc);
         }
       /*
        * Create an advertising set. The handle of the created advertising set is
        * returned in response.
        */
-      sc = sl_bt_advertiser_create_set(&ble_data_ptr->advertisingSetHandle);
+      sc = sl_bt_advertiser_create_set (&ble_data_ptr->advertisingSetHandle);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_advertiser_create_set() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          LOG_ERROR(
+              "sl_bt_advertiser_create_set() returned != 0 status=0x%04x\n\r",
+              (unsigned int) sc);
         }
       /*
        * Set the advertising timing parameters of the given advertising set. This
        * setting will take effect next time that advertising is enabled.
        */
-      sc = sl_bt_advertiser_set_timing(ble_data_ptr->advertisingSetHandle,advertising_interval_min, advertising_interval_max ,0,0);
+      sc = sl_bt_advertiser_set_timing (ble_data_ptr->advertisingSetHandle,
+                                        advertising_interval_min,
+                                        advertising_interval_max, 0, 0);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_advertiser_set_timing() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          LOG_ERROR(
+              "sl_bt_advertiser_set_timing() returned != 0 status=0x%04x\n\r",
+              (unsigned int) sc);
         }
       /*Start advertising of a given advertising set with specified discoverable and connectable modes*/
       //@reference Immediate line of code based on soc_thermometer example app.c line 157-160
-      sc = sl_bt_advertiser_start(ble_data_ptr->advertisingSetHandle,sl_bt_advertiser_general_discoverable,sl_bt_advertiser_connectable_scannable);
+      sc = sl_bt_advertiser_start (ble_data_ptr->advertisingSetHandle,
+                                   sl_bt_advertiser_general_discoverable,
+                                   sl_bt_advertiser_connectable_scannable);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x\n\r",
+                    (unsigned int) sc);
         }
 
+      /*
+       *  Configure security requirements and I/O capabilities of the system.
+       */
+      sc = sl_bt_sm_configure (0x0F, sm_io_capability_displayyesno); // MITM protection, Display with Yes/No-buttons
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_sm_configure() returned != 0 status=0x%04x",
+                    (unsigned int) sc);
+        }
+      sc = sl_bt_sm_delete_bondings ();
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR(
+              "sl_bt_sm_delete_bondings() returned != 0 status=0x%04x\n\r",
+              (unsigned int)sc);
+        }
 
-      displayPrintf(DISPLAY_ROW_NAME, "Server");
-      displayPrintf(DISPLAY_ROW_BTADDR, "%02x:%02x:%02x:%02x:%02x:%02x",
-                    ble_data_ptr->myAddress.addr[0], ble_data_ptr->myAddress.addr[1],
-                    ble_data_ptr->myAddress.addr[2], ble_data_ptr->myAddress.addr[3],
-                    ble_data_ptr->myAddress.addr[4], ble_data_ptr->myAddress.addr[5]);
-      displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
-      displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
+      displayPrintf (DISPLAY_ROW_NAME, "Server");
+      displayPrintf (DISPLAY_ROW_BTADDR, "%02x:%02x:%02x:%02x:%02x:%02x",
+                     ble_data_ptr->myAddress.addr[0],
+                     ble_data_ptr->myAddress.addr[1],
+                     ble_data_ptr->myAddress.addr[2],
+                     ble_data_ptr->myAddress.addr[3],
+                     ble_data_ptr->myAddress.addr[4],
+                     ble_data_ptr->myAddress.addr[5]);
+      displayPrintf (DISPLAY_ROW_CONNECTION, "Advertising");
+      displayPrintf (DISPLAY_ROW_ASSIGNMENT, "A8");
 
       break;
       //This event indicates that a new connection was opened.
     case sl_bt_evt_connection_opened_id:
       /* @reference
-            Immediate line of code generated using ChatGPT with the following prompt:
-            "After event: sl_bt_evt_connection_opened_id
-             sl_bt_advertiser_stop() is called,
-             Step to do: Save this connection handle. Use this value in all subsequent calls that require a connect handle, when this connection is open to the client"
+       Immediate line of code generated using ChatGPT with the following prompt:
+       "After event: sl_bt_evt_connection_opened_id
+       sl_bt_advertiser_stop() is called,
+       Step to do: Save this connection handle. Use this value in all subsequent calls that require a connect handle, when this connection is open to the client"
        */
-      ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection;  // Save the connection handle for future use
+      ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection; // Save the connection handle for future use
       ble_data_ptr->connection_open = true;
       /*
        * Stop the advertising of the given advertising set. Counterpart with @ref
        * sl_bt_advertiser_start.
        */
-      sc = sl_bt_advertiser_stop(ble_data_ptr->advertisingSetHandle);
+      sc = sl_bt_advertiser_stop (ble_data_ptr->advertisingSetHandle);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_advertiser_stop() returned != 0 status=0x%04x\r\n", (unsigned int) sc);
+          LOG_ERROR("sl_bt_advertiser_stop() returned != 0 status=0x%04x\r\n",
+                    (unsigned int) sc);
         }
 
       /*
        * Request a change in the connection parameters of a Bluetooth connection.
        */
-      sc = sl_bt_connection_set_parameters(ble_data_ptr->connection_handle,
-                                           connection_interval_min,
-                                           connection_interval_max,
-                                           peripheral_latency,
-                                           supervision_timeout, 0,4);
+      sc = sl_bt_connection_set_parameters (ble_data_ptr->connection_handle,
+                                            connection_interval_min,
+                                            connection_interval_max,
+                                            peripheral_latency,
+                                            supervision_timeout, 0, 4);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_connection_set_parameters() returned != 0 status=0x%04x", (unsigned int) sc);
+          LOG_ERROR(
+              "sl_bt_connection_set_parameters() returned != 0 status=0x%04x",
+              (unsigned int) sc);
         }
-      displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
+      displayPrintf (DISPLAY_ROW_CONNECTION, "Connected");
 
       break;
       //This event indicates that a connection was closed.
     case sl_bt_evt_connection_closed_id:
       ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->connection_open = false;
+      ble_data_ptr->bonding_flag = false;
       /* Start advertising of a given advertising set with specified discoverable and connectable modes. */
-      sc = sl_bt_advertiser_start(ble_data_ptr->advertisingSetHandle,sl_bt_advertiser_general_discoverable,sl_bt_advertiser_connectable_scannable);
+      sc = sl_bt_advertiser_start (ble_data_ptr->advertisingSetHandle,
+                                   sl_bt_advertiser_general_discoverable,
+                                   sl_bt_advertiser_connectable_scannable);
       if (sc != SL_STATUS_OK)
         {
-          LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x", (unsigned int) sc);
+          LOG_ERROR("sl_bt_advertiser_start() returned != 0 status=0x%04x",
+                    (unsigned int) sc);
         }
-      displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
-      displayPrintf(DISPLAY_ROW_TEMPVALUE,"");
+      displayPrintf (DISPLAY_ROW_CONNECTION, "Advertising");
+      displayPrintf (DISPLAY_ROW_TEMPVALUE, "");
+      displayPrintf (DISPLAY_ROW_9, "");
+      displayPrintf (DISPLAY_ROW_ACTION, "");
+      displayPrintf (DISPLAY_ROW_PASSKEY, "");
+      gpioLed0SetOff ();
+      gpioLed1SetOff ();
+      sc = sl_bt_sm_delete_bondings ();
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR(
+              "sl_bt_sm_delete_bondings() returned != 0 status=0x%04x\n\r",
+              (unsigned int)sc);
+        }
       break;
       //Informational. Triggered whenever the connection parameters are changed and at any time a connection is established
     case sl_bt_evt_connection_parameters_id:
@@ -191,11 +292,126 @@ void handle_ble_event(sl_bt_msg_t *evt)
 #endif
       break;
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
+    /*Credit: sl_bt_evt_system_external_signal_id code leveraged from Aditi Vijay Nanaware's A8 submission*/
     case sl_bt_evt_system_external_signal_id:
+      if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
+        {
+          button_state[0] = 0;
+          button_state[1] = 1;
+          sc = sl_bt_gatt_server_write_attribute_value (
+              gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
+          if (sc != SL_STATUS_OK)
+            {
+              LOG_ERROR(
+                  "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
+                  (unsigned int)sc);
+            }
+          if (ble_data_ptr->connection_open == true)
+            {
+              displayPrintf (DISPLAY_ROW_9, "Button Pressed");
+            }
+          if ((ble_data_ptr->bonding_flag == true)
+              && (ble_data_ptr->passkey == true))
+            {
+              sl_bt_sm_passkey_confirm (ble_data_ptr->connection_handle, 1);
+            }
+          if ((ble_data_ptr->ok_to_send_PB0_indications == true)
+              && (ble_data_ptr->connection_open == true))
+            {
+              if (ble_data_ptr->indication_inflight == false)
+                {
+                  sc = sl_bt_gatt_server_send_indication (
+                      ble_data_ptr->connection_handle, gattdb_button_state,
+                      sizeof(button_state), &button_state[0]);
+                  if (sc != SL_STATUS_OK)
+                    {
+                      LOG_ERROR(
+                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
+                          (unsigned int)sc);
+                    }
+                  else
+                    {
+                      ble_data_ptr->indication_inflight = true;
+                    }
+                }
+              else
+                {
+                  if (write_queue (gattdb_button_state, 2,
+                                   &button_state[0]) == WRITE_FAILURE)
+                    LOG_ERROR("write_queue() returned != 0 status=0x%04x",
+                              (unsigned int) sc);
+                }
+            }
+        }
+      else if (evt->data.evt_system_external_signal.extsignals
+          == evtPB0_released)
+        {
+          button_state[0] = 0;
+          button_state[1] = 0;
+          sc = sl_bt_gatt_server_write_attribute_value (
+              gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
+          if (sc != SL_STATUS_OK)
+            {
+              LOG_ERROR(
+                  "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
+                  (unsigned int)sc);
+            }
+          if (ble_data_ptr->connection_open == true)
+            {
+              displayPrintf (DISPLAY_ROW_9, "Button Released");
+              displayPrintf (DISPLAY_ROW_PASSKEY, "");
+              displayPrintf (DISPLAY_ROW_ACTION, "");
+            }
+
+          if ((ble_data_ptr->ok_to_send_PB0_indications)
+              && (ble_data_ptr->connection_open))
+            {
+              if (ble_data_ptr->indication_inflight == false)
+                {
+                  sc = sl_bt_gatt_server_send_indication (
+                      ble_data_ptr->connection_handle, gattdb_button_state,
+                      sizeof(button_state), &button_state[0]);
+                  if (sc != SL_STATUS_OK)
+                    {
+                      LOG_ERROR(
+                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
+                          (unsigned int) sc);
+                    }
+                  else
+                    {
+                      ble_data_ptr->indication_inflight = true;
+                    }
+                }
+              else
+                {
+                  if (write_queue (gattdb_button_state, 2,
+                                   &button_state[0]) == WRITE_FAILURE)
+                    {
+                      LOG_ERROR("write_queue() returned != 0 status=0x%04x",
+                                (unsigned int) sc);
+                    }
+                }
+            }
+        }
+
       break;
     case sl_bt_evt_system_soft_timer_id:
       //This event indicates that soft timer has expired.
-      displayUpdate();
+      displayUpdate ();
+      /*if block added with the help of Isha Burange*/
+      if (ble_data_ptr->indication_inflight == true && (get_queue_depth () > 0))
+        {
+          size_t buffer_length = 2;
+          //read_queue (ble_data_ptr->characteristic_handle, buffer_length, &button_state[2]);
+
+          if (READ_FAILURE
+              == read_queue (ble_data_ptr->characteristic_handle, &buffer_length,
+                             &button_state[2]))
+            {
+              LOG_ERROR("read function error\r\n");
+            }
+          ble_data_ptr->indication_inflight = false;
+        }
       break;
       /********************************/
       /*Events only for Slaves/Servers*/
@@ -207,6 +423,9 @@ void handle_ble_event(sl_bt_msg_t *evt)
        */
 
     case sl_bt_evt_gatt_server_characteristic_status_id:
+      /*********
+       * HTM
+       *********/
 
       /*******************************************************************************
        * @brief Data structure of the characteristic_status event
@@ -237,28 +456,69 @@ void handle_ble_event(sl_bt_msg_t *evt)
       //                                           ignored. */
       //        uint16_t client_config;       /**< The handle of client-config descriptor. */
       //      });
-
       //sl_bt_api.h: line 5300: sl_bt_gatt_server_characteristic_status_flag_t sl_bt_gatt_server_client_config = 0x1
-
-      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == sl_bt_gatt_server_client_config)
+      if (evt->data.evt_gatt_server_characteristic_status.characteristic
+          == gattdb_temperature_measurement
+          && evt->data.evt_gatt_server_characteristic_status.status_flags
+              == sl_bt_gatt_server_client_config)
         {
           //sl_bt_api.h line 3735: sl_bt_gatt_client_config_flag_t sl_bt_gatt_disable = 0x0
-          if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_disable)
+          if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
+              == sl_bt_gatt_disable)
             {
               ble_data_ptr->ok_to_send_htm_indications = false;
-              displayPrintf(DISPLAY_ROW_TEMPVALUE,"");
+              displayPrintf (DISPLAY_ROW_TEMPVALUE, "");
+              displayPrintf (DISPLAY_ROW_9, "");
+              gpioLed0SetOff();
             }
           //sl_bt_api.h line 3735: sl_bt_gatt_client_config_flag_t sl_bt_gatt_indication = 0x02
-          else if(evt->data.evt_gatt_server_characteristic_status.client_config_flags == sl_bt_gatt_indication)
+          else if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
+              == sl_bt_gatt_indication)
             {
               ble_data_ptr->ok_to_send_htm_indications = true;
+              displayPrintf (DISPLAY_ROW_9, "");
+              gpioLed0SetOn();
 
             }
         }
       //sl_bt_api.h line 5302 sl_bt_gatt_server_characteristic_status_flag_t sl_bt_gatt_server_confirmation  = 0x2
-      if(evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_temperature_measurement && evt->data.evt_gatt_server_characteristic_status.status_flags == sl_bt_gatt_server_confirmation)
+      if (evt->data.evt_gatt_server_characteristic_status.characteristic
+          == gattdb_temperature_measurement
+          && evt->data.evt_gatt_server_characteristic_status.status_flags
+              == sl_bt_gatt_server_confirmation)
         {
           ble_data_ptr->indication_inflight = false; //indication reached
+        }
+
+      /*********
+       * Button PB0
+       *********/
+      if (evt->data.evt_gatt_server_characteristic_status.characteristic
+          == gattdb_button_state)
+        {
+          if (evt->data.evt_gatt_server_characteristic_status.status_flags
+              == sl_bt_gatt_server_client_config)
+            {
+              if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
+                  == sl_bt_gatt_indication)
+                {
+                  ble_data_ptr->ok_to_send_PB0_indications = true;
+                  displayPrintf (DISPLAY_ROW_9, "Button Released");
+                  gpioLed1SetOn ();
+                }
+              if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
+                  == sl_bt_gatt_disable)
+                {
+                  ble_data_ptr->ok_to_send_PB0_indications = false;
+                  displayPrintf (DISPLAY_ROW_9, "");
+                  gpioLed1SetOff ();
+                }
+            }
+          if (evt->data.evt_gatt_server_characteristic_status.status_flags
+              == sl_bt_gatt_server_confirmation) //indication reached
+            {
+              ble_data_ptr->indication_inflight = false;
+            }
         }
       break;
 
@@ -266,7 +526,49 @@ void handle_ble_event(sl_bt_msg_t *evt)
       LOG_ERROR("Indication timed out\n\r");
       ble_data_ptr->indication_inflight = false; //indication reached
       break;
-  } // end - switch for SERVER
+
+    case sl_bt_evt_sm_confirm_bonding_id:
+      ble_data_ptr->connection_handle = evt->data.evt_sm_confirm_bonding.connection;
+      /*
+       *
+       * Accept or reject the bonding request.
+       * @param[in] connection Connection handle
+       * @param[in] confirm Acceptance. Values:
+       *     - <b>0:</b> Reject
+       *     - <b>1:</b> Accept bonding request
+       */
+      sc = sl_bt_sm_bonding_confirm (ble_data_ptr->connection_handle, 1); //accept
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR("sl_bt_sm_bonding_confirm() returned != 0 status=0x%04x",
+                    (unsigned int) sc);
+        }
+      ble_data_ptr->bonding_flag = true;
+
+      break;
+
+    case sl_bt_evt_sm_confirm_passkey_id:
+      ble_data_ptr->passkey = evt->data.evt_sm_confirm_passkey.passkey;
+
+
+      displayPrintf (DISPLAY_ROW_PASSKEY, "Passkey:%d", ble_data_ptr->passkey);
+      displayPrintf (DISPLAY_ROW_ACTION, "Confirm with PB0");
+
+      break;
+
+    case sl_bt_evt_sm_bonded_id:
+
+      displayPrintf (DISPLAY_ROW_CONNECTION, "Bonded");
+      displayPrintf (DISPLAY_ROW_PASSKEY, " ");
+      displayPrintf (DISPLAY_ROW_ACTION, " ");
+      ble_data_ptr->bonding_flag = true;
+
+      break;
+    case sl_bt_evt_sm_bonding_failed_id:
+      LOG_ERROR("Bonding failed with reason: 0x%04x",
+                evt->data.evt_sm_bonding_failed.reason);
+      break;
+    } // end - switch for SERVER
 
 #else
 
@@ -471,13 +773,13 @@ void handle_ble_event(sl_bt_msg_t *evt)
        */
     case sl_bt_evt_gatt_characteristic_value_id:
       //Credit: sl_bt_evt_gatt_characteristic_value_id event handler code was received from Aditi Vijay Nanaware
-      ble_data_ptr->Temperature = FLOAT_TO_INT32(evt->data.evt_gatt_characteristic_value.value.data);
+      ble_data_ptr->temp_char_value = FLOAT_TO_INT32(evt->data.evt_gatt_characteristic_value.value.data);
       sc = sl_bt_gatt_send_characteristic_confirmation(ble_data_ptr->connection_handle);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_gatt_send_characteristic_confirmation() returned != 0 status=0x%04x", (unsigned int) sc);
         }
-      displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data_ptr->Temperature);
+      displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data_ptr->temp_char_value);
       break;
 
 
@@ -497,45 +799,50 @@ void handle_ble_event(sl_bt_msg_t *evt)
  *
  * @reference ECEN5823 Lecture 10 slides
  */
-void ble_write_temp_from_si7021(void)
+void
+ble_write_temp_from_si7021 (void)
 {
-  uint8_t *p = htm_temperature_buffer;    // HG - Fixed bug with inconsistent address pointing
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  uint8_t *p = htm_temperature_buffer; // HG - Fixed bug with inconsistent address pointing
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr ();
   UINT8_TO_BITSTREAM(p, flags);
-  temperature_in_c = read_temp_from_si7021();
-  htm_temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
+  temperature_in_c = read_temp_from_si7021 ();
+  htm_temperature_flt = UINT32_TO_FLOAT(temperature_in_c * 1000, -3);
   UINT32_TO_BITSTREAM(p, htm_temperature_flt);
   sl_status_t sc;
   // -------------------------------
   // Write our local GATT DB
   // -------------------------------
-  sc = sl_bt_gatt_server_write_attribute_value(
-      gattdb_temperature_measurement, // handle from gatt_db.h
+  sc = sl_bt_gatt_server_write_attribute_value (
+  gattdb_temperature_measurement, // handle from gatt_db.h
       0, // offset
       4, // length
-      (uint8_t *)&(temperature_in_c) // pointer to buffer where data is
-  );
+      (uint8_t*) &(temperature_in_c) // pointer to buffer where data is
+      );
 
   if (sc != SL_STATUS_OK)
     {
-      LOG_ERROR("sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x", (unsigned int) sc);
+      LOG_ERROR(
+          "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
+          (unsigned int) sc);
     }
 
-  if((ble_data_ptr->ok_to_send_htm_indications == true)  && (ble_data_ptr->connection_open == true))
+  if ((ble_data_ptr->ok_to_send_htm_indications == true)
+      && (ble_data_ptr->connection_open == true))
     {
-      sc = sl_bt_gatt_server_send_indication(
-          ble_data_ptr->connection_handle,
-          gattdb_temperature_measurement, //handle from gatt_db.h
-          5,
-          &htm_temperature_buffer[0] //in IEEE-11073 format
-      );
-      if (sc != SL_STATUS_OK) {
-          LOG_ERROR("sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x", (unsigned int) sc);
-      }
+      sc = sl_bt_gatt_server_send_indication (ble_data_ptr->connection_handle,
+      gattdb_temperature_measurement, //handle from gatt_db.h
+                                              5, &htm_temperature_buffer[0] //in IEEE-11073 format
+                                              );
+      if (sc != SL_STATUS_OK)
+        {
+          LOG_ERROR(
+              "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
+              (unsigned int) sc);
+        }
       else
         {
           ble_data_ptr->indication_inflight = true;
-          displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
+          displayPrintf (DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
           //LOG_INFO("Temp in c: %d\n\r", temperature_in_c);
         }
     }

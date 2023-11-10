@@ -1,10 +1,13 @@
-/*
+/**
  * File name: scheduler.h
  * File description: This file declares the APIs that schedules the interrupts according to required priority scheme
- * Date: 21-Sep-2023
+ * Date created: 21-Sep-2023
+ * Updates:
+ *         23-Oct-2023 Added discovery state machine for BLE client functionality
+ *         27-Oct-2023, Added PB0 set event functions
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
- *    [1] ECEN5823 IOT Embedded Firmware lecture slides weeks 3-4
+ *    [1] ECEN5823 IOT Embedded Firmware lecture slides
  */
 
 #ifndef SRC_SCHEDULER_H_
@@ -14,13 +17,15 @@
 enum {
   evtLETIMER0_UF = 0b01,
   evtLETIMER0_COMP1 = 0b10,
-  evtI2C_Transfer_Complete = 0b100
+  evtI2C_Transfer_Complete = 0b100,
+  evtPB0_pressed = 0b1000,
+  evtPB0_released = 0b10000
 };
 
 #define CLEAR_EVENT 0
 #define MY_STATES 5
 
-/*
+/**
  * @brief Sets the LETIMER0 underflow event flag in the scheduler.
  *
  * @param none
@@ -29,7 +34,7 @@ enum {
  */
 void schedulerSetEventUF(void);
 
-/*
+/**
  * @brief Sets the LETIMER0 COMP1 event flag in the scheduler.
  *
  * @param none
@@ -38,7 +43,7 @@ void schedulerSetEventUF(void);
  */
 void schedulerSetEventCOMP1(void);
 
-/*
+/**
  * @brief Sets I2C Transfer complete flag in the scheduler
  *
  * @param none
@@ -46,6 +51,24 @@ void schedulerSetEventCOMP1(void);
  * @return none
  */
 void schedulerSetEventTransferComplete(void);
+
+/**
+ *  @brief Sets PB0 pressed flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB0Pressed(void);
+
+/**
+ *  @brief Sets PB0 released flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB0Released(void);
 /*
  * @brief Retrieves the next pending event and clears the event
  *
@@ -71,6 +94,8 @@ void temperature_state_machine(sl_bt_msg_t *evt);
  * @returns none
  */
 void discovery_state_machine(sl_bt_msg_t *evt);
+
+
 
 
 #endif /* SRC_SCHEDULER_H_ */

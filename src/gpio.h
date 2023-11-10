@@ -16,6 +16,7 @@
  *
  * @reference 1) https://www.silabs.com/documents/public/application-notes/an0012-efm32-gpio.pdf
  *            2) https://www.silabs.com/documents/public/user-guides/ug279-brd4104a-user-guide.pdf
+ *            2) https://www.silabs.com/documents/public/user-guides/ug281-brd4159a-user-guide.pdf
  
  */
 
@@ -40,6 +41,8 @@
 #define LED1_pin   (5)
 #define SI7021_pin (15)
 #define LCD_pin   (13) //PD13 DISP_EXTCOMIN [2]
+#define PB0_port (gpioPortF)
+#define PB0_pin 6 //[3]
 //Header files
 #include <stdbool.h>
 #include "em_gpio.h"
@@ -56,8 +59,6 @@ void gpioLed1SetOff();
 void si7021SetOn();
 void si7021SetOff();
 void gpioSetDisplayExtcomin(bool last_extcomin_state_high);
-
-
 
 
 #endif /* SRC_GPIO_H_ */

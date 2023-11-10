@@ -105,7 +105,6 @@
 #define SL_IOSTREAM_USART_VCOM_RTS_PORT          gpioPortA
 #define SL_IOSTREAM_USART_VCOM_RTS_PIN           3
 #define SL_IOSTREAM_USART_VCOM_RTS_LOC           30
-
 // [USART_SL_IOSTREAM_USART_VCOM]$
 // <<< sl:end pin_tool >>>
 

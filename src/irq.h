@@ -10,9 +10,7 @@
 #define SRC_IRQ_H_
 
 #include "em_core.h"
-#include "src/gpio.h"
-#include "src/timers.h"
-#include "src/scheduler.h"
+#include "app.h"
 
 /*
  * @brief Calculates the time in milliseconds using a LETIMER peripheral
@@ -40,5 +38,16 @@ void LETIMER0_IRQHandler(void);
  * @returns none
  */
 void I2C0_IRQHandler(void);
+
+/**
+ * @brief GPIO Even Interrupt Handler: It handles button press and release events for PB0.
+ *
+ * @param none
+ *
+ * @returns none
+ *
+ * @reference Written with the help of ChatGPT using step 2 as prompt from Assignment 8-Approach/Guidance section
+ */
+void GPIO_EVEN_IRQHandler(void);
 
 #endif /* SRC_IRQ_H_ */

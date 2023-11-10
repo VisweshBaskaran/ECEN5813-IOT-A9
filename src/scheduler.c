@@ -1,9 +1,10 @@
-/*
+/**
  * File name: scheduler.c
  * File description: This file defines the APIs that schedules the interrupts according to required priority scheme
  * Date created: 21-Sep-2023
  * Updates:
  *         23-Oct-2023 Added discovery state machine for BLE client functionality
+ *         27-Oct-2023, Added PB0 set event functions
  * Author: Visweshwaran Baskaran viswesh.baskaran@colorado.edu
  * Reference:
  *    [1] ECEN5823 IOT Embedded Firmware lecture slides
@@ -35,7 +36,7 @@ const uint8_t ServiceUUID[2] = {0x09,0x18};
 const uint8_t CharacteristicUUID[2] = {0x1c, 0x2a}; //[2]
 uint32_t myEvents = CLEAR_EVENT;
 
-/*
+/**
  * @brief Sets the LETIMER0 underflow event flag in the scheduler.
  *
  * @param none
@@ -53,7 +54,7 @@ void schedulerSetEventUF(void)
 
 }
 
-/*
+/**
  * @brief Sets the LETIMER0 COMP1 event flag in the scheduler.
  *
  * @param none
@@ -71,7 +72,7 @@ void schedulerSetEventCOMP1(void)
 
 }
 
-/*
+/**
  * @brief Sets I2C Transfer complete flag in the scheduler
  *
  * @param none
@@ -89,7 +90,39 @@ void schedulerSetEventTransferComplete(void)
 
 }
 
-/*
+/**
+ *  @brief Sets PB0 pressed flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB0Pressed(void)
+{
+  CORE_DECLARE_IRQ_STATE;
+  // set event
+  CORE_ENTER_CRITICAL(); // enter critical, turn off interrupts in NVIC
+  sl_bt_external_signal(evtPB0_pressed);
+  CORE_EXIT_CRITICAL(); // exit critical, re-enable interrupts in NVIC
+}
+
+/**
+ *  @brief Sets PB0 released flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB0Released(void)
+{
+  CORE_DECLARE_IRQ_STATE;
+  // set event
+  CORE_ENTER_CRITICAL(); // enter critical, turn off interrupts in NVIC
+  sl_bt_external_signal(evtPB0_released);
+  CORE_EXIT_CRITICAL(); // exit critical, re-enable interrupts in NVIC
+}
+
+/**
  * @brief Retrieves the next pending event and clears the event
  *
  * @param none
@@ -127,6 +160,22 @@ uint32_t getNextEvent(void)
 
     }
 
+  if(myEvents & evtPB0_pressed)
+     {
+       //Selecting 1 event to return to main() code with priorities applied
+       theEvent = evtPB0_pressed;
+       //Clearing the event
+       myEvents &= ~evtPB0_pressed;
+
+     }
+  if(myEvents & evtPB0_released)
+     {
+       //Selecting 1 event to return to main() code with priorities applied
+       theEvent = evtPB0_released;
+       //Clearing the event
+       myEvents &= ~evtPB0_released;
+
+     }
   CORE_EXIT_CRITICAL();
   return (theEvent);
 } // getNextEvent()

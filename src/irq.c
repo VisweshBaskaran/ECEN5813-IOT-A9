@@ -63,6 +63,40 @@ void I2C0_IRQHandler(void)
     }
 }
 
+/**
+ * @brief GPIO Even Interrupt Handler: It handles button press and release events for PB0.
+ *
+ * @param none
+ *
+ * @returns none
+ *
+ * @reference Written with the help of ChatGPT using step 2 as prompt from Assignment 8-Approach/Guidance section
+ */
+void GPIO_EVEN_IRQHandler(void)
+{
+  uint32_t flag;
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  flag = GPIO_IntGet();
+  GPIO_IntClear(flag);
+  uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin);
+  if (flag & (1 << PB0_pin))
+    {
+      if (button_state)
+        {
+          ble_data_ptr->button_pressed = false;
+          schedulerSetEventPB0Released();
+          //gpioLed1SetOff();
+          //gpioLed0SetOn();
+        }
+      else
+        {
+          ble_data_ptr->button_pressed = true;
+          schedulerSetEventPB0Pressed();
+          //gpioLed1SetOn();
+          //gpioLed0SetOff();
+        }
+    }
+}
 /*
  * @brief Calculates the time in milliseconds using a LETIMER peripheral
  *
