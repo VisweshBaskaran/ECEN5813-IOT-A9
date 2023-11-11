@@ -57,6 +57,18 @@ nextPtr (uint32_t ptr)
   return ptr;
 } // nextPtr()
 
+/**
+ * @brief Writes data to the indication queue.
+ *
+ * This function writes data to the indication queue, storing information about the
+ * character handle, buffer length, and the buffer itself.
+ *
+ * @param charHandle The handle of the character.
+ * @param bufferLength The length of the buffer.
+ * @param buffer A pointer to the buffer containing data to be written to the queue.
+ *
+ * @return Returns READ_SUCCESS on successful write, or READ_FAILURE if the queue is full.
+ */
 bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t *buffer)
 {
   if (nextPtr (indication_queue.wptr) != indication_queue.rptr) //Checking if queue is full
@@ -71,6 +83,19 @@ bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t *buffer)
     }
   return READ_FAILURE ;
 } //write_queue()
+
+/**
+ * @brief Reads data from the indication queue.
+ *
+ * This function reads data from the indication queue, retrieving information about
+ * the character handle, buffer length, and the buffer itself.
+ *
+ * @param charHandle A pointer to store the character handle.
+ * @param bufferLength A pointer to store the buffer length.
+ * @param buffer A pointer to the buffer where data will be copied.
+ *
+ * @return Returns WRITE_SUCCESS on successful read, or WRITE_FAILURE if the queue is empty.
+ */
 bool read_queue (uint16_t *charHandle, size_t *bufferLength, uint8_t *buffer)
 {
   if (indication_queue.rptr != indication_queue.wptr) //Checking if queue is empty
@@ -87,6 +112,14 @@ bool read_queue (uint16_t *charHandle, size_t *bufferLength, uint8_t *buffer)
   return WRITE_FAILURE ;
 }//read_queue
 
+/**
+ * @brief Gets the depth of the indication queue.
+ *
+ * This function calculates and returns the depth of the indication queue, representing
+ * the number of elements in the queue.
+ *
+ * @return The depth of the indication queue.
+ */
 uint32_t get_queue_depth (void)
 {
   if (indication_queue.wptr >= indication_queue.rptr)
@@ -131,13 +164,13 @@ void handle_ble_event (sl_bt_msg_t *evt)
     // Including starting BT stack soft timers!
     // --------------------------------------------------------
     case sl_bt_evt_system_boot_id:
-      LOG_INFO("sl_bt_evt_system_boot_id\n\r");
+      //LOG_INFO("sl_bt_evt_system_boot_id\n\r");
       //Clearing all boolean flags
       ble_data_ptr->passkey_available = false;
       ble_data_ptr->connection_open = false; //false = closed
       ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->indication_inflight = false;
-      ble_data_ptr->bonding_flag = false;
+      ble_data_ptr->bonding_flag = false; //yet to bond
 
       /*
        * Read the Bluetooth identity address used by the device, which can be a public
@@ -195,6 +228,10 @@ void handle_ble_event (sl_bt_msg_t *evt)
           LOG_ERROR("sl_bt_sm_configure() returned != 0 status=0x%04x",
                     (unsigned int) sc);
         }
+      /*
+       * Delete all bonding information and accept list filtering from the persistent
+       * store. This will also delete device local identity resolving key (IRK).
+       */
       sc = sl_bt_sm_delete_bondings ();
       if (sc != SL_STATUS_OK)
         {
@@ -217,7 +254,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
       break;
       //This event indicates that a new connection was opened.
     case sl_bt_evt_connection_opened_id:
-      LOG_INFO("sl_bt_evt_connection_opened_id\n\r");
+      //LOG_INFO("sl_bt_evt_connection_opened_id\n\r");
       /* @reference
        Immediate line of code generated using ChatGPT with the following prompt:
        "After event: sl_bt_evt_connection_opened_id
@@ -256,10 +293,10 @@ void handle_ble_event (sl_bt_msg_t *evt)
       break;
       //This event indicates that a connection was closed.
     case sl_bt_evt_connection_closed_id:
-      LOG_INFO("sl_bt_evt_connection_closed_id\n\r");
+      //LOG_INFO("sl_bt_evt_connection_closed_id\n\r");
       ble_data_ptr->ok_to_send_htm_indications = false;
       ble_data_ptr->connection_open = false;
-      ble_data_ptr->bonding_flag = false;
+      ble_data_ptr->bonding_flag = false; //not bonded
       /* Start advertising of a given advertising set with specified discoverable and connectable modes. */
       sc = sl_bt_advertiser_start (ble_data_ptr->advertisingSetHandle,
                                    sl_bt_advertiser_general_discoverable,
@@ -298,7 +335,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
 
 
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
-      /*Credit: sl_bt_evt_system_external_signal_id code leveraged from Aditi Vijay Nanaware's A8 submission*/
+      /*Credit: sl_bt_evt_system_external_signal_id code developed with the help of Aditi Vijay Nanaware's A8 submission*/
     case sl_bt_evt_system_external_signal_id:
       LOG_INFO("sl_bt_evt_system_external_signal_id\n\r");
 
@@ -334,68 +371,70 @@ void handle_ble_event (sl_bt_msg_t *evt)
       //Button pressed
       if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed && ble_data_ptr->button_pressed)
         {
-          LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop\n\r");
+          //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop\n\r");
           if (ble_data_ptr->connection_open == true)
             {
               displayPrintf (DISPLAY_ROW_9, "Button Pressed");
             }
-          //Update gatt db
-          button_state[0] = 0;
-          button_state[1] = 1;
-          sc = sl_bt_gatt_server_write_attribute_value (
-              gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
-          if (sc != SL_STATUS_OK)
+          //Security:
+          if ((ble_data_ptr->bonding_flag == false)
+              && (ble_data_ptr->passkey_available == true))
             {
-              LOG_ERROR(
-                  "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
-                  (unsigned int)sc);
+              //Accept or reject the reported passkey confirm value.
+              sl_bt_sm_passkey_confirm (ble_data_ptr->connection_handle, 1); //Creating bond after confirming passkey
+              ble_data_ptr->passkey_available = false;
             }
-
-          //Button indications
-          if(ble_data_ptr->ok_to_send_htm_indications == true && ble_data_ptr->connection_open == true)
+          else if (ble_data_ptr->bonding_flag == true)
             {
-              if(ble_data_ptr->indication_inflight == false)
+              //Update gatt db
+              button_state[0] = 0; //Flag
+              button_state[1] = 1;
+              //Update gatt database with button state value
+              sc = sl_bt_gatt_server_write_attribute_value (
+                  gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
+              if (sc != SL_STATUS_OK)
                 {
-                  LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, sending indications\n\r");
-                  sc = sl_bt_gatt_server_send_indication (
-                      ble_data_ptr->connection_handle, gattdb_button_state,
-                      sizeof(button_state), &button_state[0]);
-                  if (sc != SL_STATUS_OK)
+                  LOG_ERROR(
+                      "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
+                      (unsigned int)sc);
+                }
+
+              //Button indications
+              if(ble_data_ptr->ok_to_send_PB0_indications == true && ble_data_ptr->connection_open == true)
+                {
+                  if(ble_data_ptr->indication_inflight == false) //No indication inflight, indication can be sent
                     {
-                      LOG_ERROR(
-                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
-                          (unsigned int)sc);
+                      //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, sending indications\n\r");
+                      sc = sl_bt_gatt_server_send_indication (
+                          ble_data_ptr->connection_handle, gattdb_button_state,
+                          sizeof(button_state), &button_state[0]);
+                      if (sc != SL_STATUS_OK)
+                        {
+                          LOG_ERROR(
+                              "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
+                              (unsigned int)sc);
+                        }
+                      else
+                        {
+                          ble_data_ptr->indication_inflight = true;
+                        }
                     }
                   else
                     {
-                      ble_data_ptr->indication_inflight = true;
+                      //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, queuing indications\n\r");
+                      if (write_queue (gattdb_button_state, 2,
+                                       &button_state[0]) == WRITE_FAILURE) //Indication is inflight, indication can not be sent, therefore queued to indication queue
+                        LOG_ERROR("write_queue() returned != 0 status=0x%04x",
+                                  (unsigned int) sc);
                     }
-
                 }
-              else
-                {
-                  LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, queuing indications\n\r");
-                  if (write_queue (gattdb_button_state, 2,
-                                   &button_state[0]) == WRITE_FAILURE)
-                    LOG_ERROR("write_queue() returned != 0 status=0x%04x",
-                              (unsigned int) sc);
-                }
-
-              //Security:
-              if ((ble_data_ptr->bonding_flag == false)
-                  && (ble_data_ptr->passkey_available == true))
-                {
-                  sl_bt_sm_passkey_confirm (ble_data_ptr->connection_handle, 1);
-                  ble_data_ptr->passkey_available = false;
-                }
-
             }
 
         }
 
       if (evt->data.evt_system_external_signal.extsignals == evtPB0_released && ble_data_ptr->button_pressed == false)
         {
-          LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop\n\r");
+          //LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop\n\r");
           if (ble_data_ptr->connection_open == true)
             {
               displayPrintf (DISPLAY_ROW_9, "Button Released");
@@ -419,7 +458,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
           if ((ble_data_ptr->ok_to_send_PB0_indications)
               && (ble_data_ptr->connection_open))
             {
-              LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop, sending indications\n\r");
+              //LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop, sending indications\n\r");
               if (ble_data_ptr->indication_inflight == false)
                 {
                   sc = sl_bt_gatt_server_send_indication (
@@ -438,7 +477,8 @@ void handle_ble_event (sl_bt_msg_t *evt)
                 }
               else
                 {
-                  LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop, queuing indications\n\r");
+                  //LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop, queuing indications\n\r");
+                  //Indication is inflight, indication can not be sent, therefore queued to indication queue
                   if (write_queue (gattdb_button_state, 2,
                                    &button_state[0]) == WRITE_FAILURE)
                     {
@@ -447,129 +487,16 @@ void handle_ble_event (sl_bt_msg_t *evt)
                     }
                 }
             }
-
-
         }
-
-
-      /***********************/
-
-      /***********************/
-
-      /***********************/
-
-      /***********************/
-      /* if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
-
-      if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed)
-        {
-          button_state[0] = 0;
-          button_state[1] = 1;
-          sc = sl_bt_gatt_server_write_attribute_value (
-              gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
-          if (sc != SL_STATUS_OK)
-            {
-              LOG_ERROR(
-                  "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
-                  (unsigned int)sc);
-            }
-          if (ble_data_ptr->connection_open == true)
-            {
-              displayPrintf (DISPLAY_ROW_9, "Button Pressed");
-            }
-          if ((ble_data_ptr->bonding_flag == true)
-              && (ble_data_ptr->passkey))
-            {
-              sl_bt_sm_passkey_confirm (ble_data_ptr->connection_handle, 1);
-            }
-          if ((ble_data_ptr->ok_to_send_PB0_indications == true)
-              && (ble_data_ptr->connection_open == true))
-            {
-              if (ble_data_ptr->indication_inflight == false)
-                {
-                  sc = sl_bt_gatt_server_send_indication (
-                      ble_data_ptr->connection_handle, gattdb_button_state,
-                      sizeof(button_state), &button_state[0]);
-                  if (sc != SL_STATUS_OK)
-                    {
-                      LOG_ERROR(
-                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
-                          (unsigned int)sc);
-                    }
-                  else
-                    {
-                      ble_data_ptr->indication_inflight = true;
-                    }
-                }
-              else
-                {
-                  if (write_queue (gattdb_button_state, 2,
-                                   &button_state[0]) == WRITE_FAILURE)
-                    LOG_ERROR("write_queue() returned != 0 status=0x%04x",
-                              (unsigned int) sc);
-                }
-            }
-        }
-      else if (evt->data.evt_system_external_signal.extsignals
-          == evtPB0_released)
-        {
-          button_state[0] = 0;
-          button_state[1] = 0;
-          sc = sl_bt_gatt_server_write_attribute_value (
-              gattdb_button_state, 0, 1, (const uint8_t*) &button_state[1]);
-          if (sc != SL_STATUS_OK)
-            {
-              LOG_ERROR(
-                  "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x",
-                  (unsigned int)sc);
-            }
-          if (ble_data_ptr->connection_open == true)
-            {
-              displayPrintf (DISPLAY_ROW_9, "Button Released");
-              displayPrintf (DISPLAY_ROW_PASSKEY, "");
-              displayPrintf (DISPLAY_ROW_ACTION, "");
-            }
-
-          if ((ble_data_ptr->ok_to_send_PB0_indications)
-              && (ble_data_ptr->connection_open))
-            {
-              if (ble_data_ptr->indication_inflight == false)
-                {
-                  sc = sl_bt_gatt_server_send_indication (
-                      ble_data_ptr->connection_handle, gattdb_button_state,
-                      sizeof(button_state), &button_state[0]);
-                  if (sc != SL_STATUS_OK)
-                    {
-                      LOG_ERROR(
-                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
-                          (unsigned int) sc);
-                    }
-                  else
-                    {
-                      ble_data_ptr->indication_inflight = true;
-                    }
-                }
-              else
-                {
-                  if (write_queue (gattdb_button_state, 2,
-                                   &button_state[0]) == WRITE_FAILURE)
-                    {
-                      LOG_ERROR("write_queue() returned != 0 status=0x%04x",
-                                (unsigned int) sc);
-                    }
-                }
-            }
-        }*/
-
       break;
     case sl_bt_evt_system_soft_timer_id:
-      LOG_INFO("sl_bt_evt_system_soft_timer_id\n\r");
+      //LOG_INFO("sl_bt_evt_system_soft_timer_id\n\r");
       //This event indicates that soft timer has expired.
       displayUpdate ();
-      /*if block added with the help of Isha Burange*/
+      /*Credit: if block added with the help of Isha Burange*/
       if (ble_data_ptr->indication_inflight == true && (get_queue_depth () > 0))
         {
-          LOG_INFO("In sl_bt_evt_system_soft_timer_id, Reading from indication queue\n\r");
+          //LOG_INFO("In sl_bt_evt_system_soft_timer_id, Reading from indication queue\n\r");
           size_t buffer_length = 2;
           //read_queue (ble_data_ptr->characteristic_handle, buffer_length, &button_state[2]);
 
@@ -593,7 +520,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
        */
 
     case sl_bt_evt_gatt_server_characteristic_status_id:
-      LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id\n\r");
+      //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id\n\r");
       /*********
        * HTM
        *********/
@@ -702,6 +629,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
       ble_data_ptr->indication_inflight = false; //indication reached
       break;
 
+      //Indicates a user request to display that the new bonding request is received and for the user to confirm the request.
     case sl_bt_evt_sm_confirm_bonding_id:
       LOG_INFO("sl_bt_evt_sm_confirm_bonding_id\n\r");
       // ble_data_ptr->connection_handle = evt->data.evt_sm_confirm_bonding.connection;
@@ -713,18 +641,19 @@ void handle_ble_event (sl_bt_msg_t *evt)
        *     - <b>0:</b> Reject
        *     - <b>1:</b> Accept bonding request
        */
-      sc = sl_bt_sm_bonding_confirm (ble_data_ptr->connection_handle, 1); //accept
+      sc = sl_bt_sm_bonding_confirm (ble_data_ptr->connection_handle, 1);  bond
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_sm_bonding_confirm() returned != 0 status=0x%04x",
                     (unsigned int) sc);
         }
-     // ble_data_ptr->bonding_flag = true;
+      // ble_data_ptr->bonding_flag = true;
 
       break;
 
+      //Indicates a request for passkey display and confirmation by the user.
     case sl_bt_evt_sm_confirm_passkey_id:
-      LOG_INFO("sl_bt_evt_sm_confirm_passkey_id\n\r");
+      //LOG_INFO("sl_bt_evt_sm_confirm_passkey_id\n\r");
       ble_data_ptr->passkey = evt->data.evt_sm_confirm_passkey.passkey;
       ble_data_ptr->passkey_available = true;
       displayPrintf (DISPLAY_ROW_PASSKEY, "Passkey:%d", ble_data_ptr->passkey);
@@ -732,8 +661,9 @@ void handle_ble_event (sl_bt_msg_t *evt)
 
       break;
 
+      //Triggered after the pairing or bonding procedure is successfully completed.
     case sl_bt_evt_sm_bonded_id:
-      LOG_INFO("sl_bt_evt_sm_bonded_id\n\r");
+      //LOG_INFO("sl_bt_evt_sm_bonded_id\n\r");
       displayPrintf (DISPLAY_ROW_CONNECTION, "Bonded");
       displayPrintf (DISPLAY_ROW_PASSKEY, " ");
       displayPrintf (DISPLAY_ROW_ACTION, " ");
@@ -742,7 +672,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
 
       break;
     case sl_bt_evt_sm_bonding_failed_id:
-      LOG_INFO("sl_bt_evt_sm_bonding_failed_id\n\r");
+      //LOG_INFO("sl_bt_evt_sm_bonding_failed_id\n\r");
       LOG_ERROR("Bonding failed with reason: 0x%04x",
                 evt->data.evt_sm_bonding_failed.reason);
       break;

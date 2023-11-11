@@ -115,8 +115,42 @@ void ble_send_button_state();
  * @reference Assignment 7 document
  */
 int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian);
+
+/**
+ * @brief Writes data to the indication queue.
+ *
+ * This function writes data to the indication queue, storing information about the
+ * character handle, buffer length, and the buffer itself.
+ *
+ * @param charHandle The handle of the character.
+ * @param bufferLength The length of the buffer.
+ * @param buffer A pointer to the buffer containing data to be written to the queue.
+ *
+ * @return Returns READ_SUCCESS on successful write, or READ_FAILURE if the queue is full.
+ */
 bool     write_queue (uint16_t charHandle, size_t bufferLength,uint8_t *buffer);
+
+/**
+ * @brief Reads data from the indication queue.
+ *
+ * This function reads data from the indication queue, retrieving information about
+ * the character handle, buffer length, and the buffer itself.
+ *
+ * @param charHandle A pointer to store the character handle.
+ * @param bufferLength A pointer to store the buffer length.
+ * @param buffer A pointer to the buffer where data will be copied.
+ *
+ * @return Returns WRITE_SUCCESS on successful read, or WRITE_FAILURE if the queue is empty.
+ */
 bool     read_queue (uint16_t *charHandle, size_t *bufferLength,uint8_t *buffer);
-void     get_queue_status (uint32_t *_wptr, uint32_t *_rptr, bool *_full, bool *_empty);
+
+/**
+ * @brief Gets the depth of the indication queue.
+ *
+ * This function calculates and returns the depth of the indication queue, representing
+ * the number of elements in the queue.
+ *
+ * @return The depth of the indication queue.
+ */
 uint32_t get_queue_depth (void);
 #endif /* SRC_BLE_H_ */
