@@ -494,20 +494,29 @@ void handle_ble_event (sl_bt_msg_t *evt)
       //This event indicates that soft timer has expired.
       displayUpdate ();
       /*Credit: if block added with the help of Isha Burange*/
-      if (ble_data_ptr->indication_inflight == true && (get_queue_depth () > 0))
+      if (ble_data_ptr->indication_inflight == false && (get_queue_depth () > 0))
         {
           //LOG_INFO("In sl_bt_evt_system_soft_timer_id, Reading from indication queue\n\r");
           size_t buffer_length = 2;
-          //read_queue (ble_data_ptr->characteristic_handle, buffer_length, &button_state[2]);
-
           if (READ_FAILURE
-              == read_queue (ble_data_ptr->characteristic_handle, &buffer_length,
+              == read_queue (&ble_data_ptr->characteristic_handle, &buffer_length,
                              &button_state[2]))
             {
               LOG_ERROR("read_queue() returned != 0 status=0x%04x",
                         (unsigned int) sc);
             }
-          ble_data_ptr->indication_inflight = false;
+          else
+            {
+              sc = sl_bt_gatt_server_send_indication(ble_data_ptr->connection_handle, ble_data_ptr->characteristic_handle,
+                                                     buffer_length, &button_state[0]);
+              if (sc != SL_STATUS_OK)
+                {
+                  LOG_ERROR("sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x",
+                            (unsigned int) sc);
+                }
+              else
+                ble_data_ptr->indication_inflight = true;
+            }
         }
       break;
       /********************************/
@@ -593,7 +602,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
        *********/
       if (evt->data.evt_gatt_server_characteristic_status.characteristic
           == gattdb_button_state)
-        LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic\n\r");
+        //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic\n\r");
       {
           if (evt->data.evt_gatt_server_characteristic_status.status_flags
               == sl_bt_gatt_server_client_config)
@@ -601,7 +610,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
               if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
                   == sl_bt_gatt_indication)
                 {
-                  LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, ok to send pb0 indications true\n\r");
+                  //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, ok to send pb0 indications true\n\r");
                   ble_data_ptr->ok_to_send_PB0_indications = true;
                   displayPrintf (DISPLAY_ROW_9, "Button Released");
                   gpioLed1SetOn ();
@@ -609,7 +618,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
               if (evt->data.evt_gatt_server_characteristic_status.client_config_flags
                   == sl_bt_gatt_disable)
                 {
-                  LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, ok to send pb0 indications false\n\r");
+                  //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, ok to send pb0 indications false\n\r");
                   ble_data_ptr->ok_to_send_PB0_indications = false;
                   displayPrintf (DISPLAY_ROW_9, "");
                   gpioLed1SetOff ();
@@ -618,7 +627,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
           if (evt->data.evt_gatt_server_characteristic_status.status_flags
               == sl_bt_gatt_server_confirmation) //indication reached
             {
-              LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, indication inflight false\n\r");
+              //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, indication inflight false\n\r");
               ble_data_ptr->indication_inflight = false;
             }
       }
@@ -631,7 +640,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
 
       //Indicates a user request to display that the new bonding request is received and for the user to confirm the request.
     case sl_bt_evt_sm_confirm_bonding_id:
-      LOG_INFO("sl_bt_evt_sm_confirm_bonding_id\n\r");
+      //LOG_INFO("sl_bt_evt_sm_confirm_bonding_id\n\r");
       // ble_data_ptr->connection_handle = evt->data.evt_sm_confirm_bonding.connection;
       /*
        *
@@ -641,7 +650,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
        *     - <b>0:</b> Reject
        *     - <b>1:</b> Accept bonding request
        */
-      sc = sl_bt_sm_bonding_confirm (ble_data_ptr->connection_handle, 1);  bond
+      sc = sl_bt_sm_bonding_confirm (ble_data_ptr->connection_handle, 1);
       if (sc != SL_STATUS_OK)
         {
           LOG_ERROR("sl_bt_sm_bonding_confirm() returned != 0 status=0x%04x",
