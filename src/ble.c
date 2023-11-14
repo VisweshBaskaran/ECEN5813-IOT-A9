@@ -337,7 +337,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
       //This event indicates that sl_bt_external_signal(myEvent) was called and returns the myEvent value in the event data structure: evt->data.evt_system_external_signal.extsignals
       /*Credit: sl_bt_evt_system_external_signal_id code developed with the help of Aditi Vijay Nanaware's A8 submission*/
     case sl_bt_evt_system_external_signal_id:
-      LOG_INFO("sl_bt_evt_system_external_signal_id\n\r");
+      //LOG_INFO("sl_bt_evt_system_external_signal_id\n\r");
 
       // DOS This code looks excessively complex, difficult to determine what is supposed to happen.
       // Perhaps some design first might help, something like this (and yes, it can be as easy as creating
