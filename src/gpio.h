@@ -43,6 +43,8 @@
 #define LCD_pin   (13) //PD13 DISP_EXTCOMIN [2]
 #define PB0_port (gpioPortF)
 #define PB0_pin 6 //[3]
+#define PB1_port (gpioPortF)
+#define PB1_pin 7
 //Header files
 #include <stdbool.h>
 #include "em_gpio.h"

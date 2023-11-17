@@ -53,12 +53,19 @@ void gpioInit()
   // Set the GPIO mode of operation
   GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
 
+  GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
+  // Set the GPIO mode of operation
+  GPIO_PinModeSet(LED_port, LED1_pin, gpioModePushPull, false);
+
   GPIO_DriveStrengthSet(SI7021_port, gpioDriveStrengthWeakAlternateWeak);
   // Set the sensor mode of operation
   GPIO_PinModeSet(SI7021_port, SI7021_pin, gpioModePushPull, false);
 
   GPIO_PinModeSet(PB0_port, PB0_pin, gpioModeInputPullFilter, true);
   GPIO_ExtIntConfig (PB0_port, PB0_pin, PB0_pin, true, true, true);
+
+  GPIO_PinModeSet(PB1_port, PB1_pin, gpioModeInputPullFilter, true);
+  GPIO_ExtIntConfig (PB1_port, PB1_pin, PB1_pin, true, true, true);
 } // gpioInit()
 
 

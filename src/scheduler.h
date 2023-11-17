@@ -19,11 +19,15 @@ enum {
   evtLETIMER0_COMP1 = 0b10,
   evtI2C_Transfer_Complete = 0b100,
   evtPB0_pressed = 0b1000,
-  evtPB0_released = 0b10000
+  evtPB0_released = 0b10000,
+  evtPB1_pressed = 0b100000,
+  evtPB1_released = 0b1000000
 };
 
 #define CLEAR_EVENT 0
 #define MY_STATES 5
+
+
 
 /**
  * @brief Sets the LETIMER0 underflow event flag in the scheduler.
@@ -63,6 +67,24 @@ void schedulerSetEventPB0Pressed(void);
 
 /**
  *  @brief Sets PB0 released flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB1Released(void);
+
+/**
+ *  @brief Sets PB1 pressed flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB1Pressed(void);
+
+/**
+ *  @brief Sets PB1 released flag in the scheduler
  *
  *  @param none
  *

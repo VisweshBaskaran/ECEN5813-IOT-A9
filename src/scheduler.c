@@ -25,15 +25,17 @@ typedef enum
 typedef enum
 {
   IDLE_CLIENT,
-  SERVICE_DISCOVERED,
+  DISCOVER_BUTTON_SERVICE,
+  SERVICES_DISCOVERED,
+  DISCOVER_BUTTON_CHARACTERISTICS,
   CHARACTERISTICS_DISCOVERED,
+  SET_BUTTON_INDICATIONS,
   INDICATION_ENABLED,
   WAIT_FOR_CLOSE
 }Client_State_t; //States for discovery state machine
 
 
-const uint8_t ServiceUUID[2] = {0x09,0x18};
-const uint8_t CharacteristicUUID[2] = {0x1c, 0x2a}; //[2]
+
 uint32_t myEvents = CLEAR_EVENT;
 
 /**
@@ -123,6 +125,38 @@ void schedulerSetEventPB0Released(void)
 }
 
 /**
+ *  @brief Sets PB1 pressed flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB1Pressed(void)
+{
+  CORE_DECLARE_IRQ_STATE;
+  // set event
+  CORE_ENTER_CRITICAL(); // enter critical, turn off interrupts in NVIC
+  sl_bt_external_signal(evtPB1_pressed);
+  CORE_EXIT_CRITICAL(); // exit critical, re-enable interrupts in NVIC
+}
+
+/**
+ *  @brief Sets PB1 released flag in the scheduler
+ *
+ *  @param none
+ *
+ *  @return none
+ */
+void schedulerSetEventPB1Released(void)
+{
+  CORE_DECLARE_IRQ_STATE;
+  // set event
+  CORE_ENTER_CRITICAL(); // enter critical, turn off interrupts in NVIC
+  sl_bt_external_signal(evtPB1_released);
+  CORE_EXIT_CRITICAL(); // exit critical, re-enable interrupts in NVIC
+}
+
+/**
  * @brief Retrieves the next pending event and clears the event
  *
  * @param none
@@ -161,21 +195,21 @@ uint32_t getNextEvent(void)
     }
 
   if(myEvents & evtPB0_pressed)
-     {
-       //Selecting 1 event to return to main() code with priorities applied
-       theEvent = evtPB0_pressed;
-       //Clearing the event
-       myEvents &= ~evtPB0_pressed;
+    {
+      //Selecting 1 event to return to main() code with priorities applied
+      theEvent = evtPB0_pressed;
+      //Clearing the event
+      myEvents &= ~evtPB0_pressed;
 
-     }
+    }
   if(myEvents & evtPB0_released)
-     {
-       //Selecting 1 event to return to main() code with priorities applied
-       theEvent = evtPB0_released;
-       //Clearing the event
-       myEvents &= ~evtPB0_released;
+    {
+      //Selecting 1 event to return to main() code with priorities applied
+      theEvent = evtPB0_released;
+      //Clearing the event
+      myEvents &= ~evtPB0_released;
 
-     }
+    }
   CORE_EXIT_CRITICAL();
   return (theEvent);
 } // getNextEvent()
@@ -284,10 +318,12 @@ void discovery_state_machine(sl_bt_msg_t *evt)
   switch(currentState)
   {
     case IDLE_CLIENT:
+      ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection;
       nextState = IDLE_CLIENT;  //default state
       // Check if a connection has been opened.
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_opened_id)
         {
+          uint8_t ServiceUUID[2] = {0x09,0x18};
           // Discover primary services with health thermometer service UUID.
           sc = sl_bt_gatt_discover_primary_services_by_uuid(ble_data_ptr->connection_handle,
                                                             sizeof(ServiceUUID),
@@ -295,14 +331,34 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           if(sc != SL_STATUS_OK) {
               LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
           }
-          nextState = SERVICE_DISCOVERED;
+          nextState = DISCOVER_BUTTON_SERVICE;
         }
       break;
-    case SERVICE_DISCOVERED:
-      nextState = SERVICE_DISCOVERED;  //default state
+    case DISCOVER_BUTTON_SERVICE:
+      nextState = DISCOVER_BUTTON_SERVICE;  //default state
+
+      // Check if a GATT procedure has been completed (discover htm service)
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          uint8_t Button_ServiceUUID[16] = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x01, 0x00, 0x00, 0x00};
+          // Discover primary services with button service UUID.
+          sc = sl_bt_gatt_discover_primary_services_by_uuid(ble_data_ptr->connection_handle,
+                                                            sizeof(Button_ServiceUUID),
+                                                            (const uint8_t*)Button_ServiceUUID);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
+          }
+          nextState = SERVICES_DISCOVERED;
+        }
+      break;
+
+
+    case SERVICES_DISCOVERED:
+      nextState = SERVICES_DISCOVERED;  //default state
       // Check if a GATT procedure has been completed (service discovery in this case).
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
         {
+          uint8_t CharacteristicUUID[2] = {0x1c, 0x2a}; //[2]
           // Discover characteristics for health thermometer UUID within the previously discovered service.
           sc = sl_bt_gatt_discover_characteristics_by_uuid(ble_data_ptr->connection_handle,
                                                            ble_data_ptr->service_handle,
@@ -311,17 +367,53 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           if(sc != SL_STATUS_OK) {
               LOG_ERROR("sl_bt_gatt_discover_characteristics_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
           }
+          nextState = DISCOVER_BUTTON_CHARACTERISTICS;
+        }
+      break;
+
+    case DISCOVER_BUTTON_CHARACTERISTICS:
+      nextState = DISCOVER_BUTTON_CHARACTERISTICS;  //default state
+
+
+      // Check if a GATT procedure has been completed (discover htm characteristics)
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          uint8_t Button_CharacteristicUUID[16] = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x02, 0x00, 0x00, 0x00};
+          // Discover primary services with button service UUID.
+          sc = sl_bt_gatt_discover_characteristics_by_uuid(ble_data_ptr->connection_handle,
+                                                           ble_data_ptr->button_service_handle,
+                                                           sizeof(Button_CharacteristicUUID),
+                                                           (const uint8_t*)Button_CharacteristicUUID);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_discover_characteristics_by_uuid() returned != 0 status=0x%04x\n\r", (unsigned int)sc);
+          }
           nextState = CHARACTERISTICS_DISCOVERED;
         }
       break;
     case CHARACTERISTICS_DISCOVERED:
       nextState = CHARACTERISTICS_DISCOVERED;  //default state
-      // Check if a GATT procedure has been completed (characteristic discovery in this case).
+      // Check if a GATT procedure has been completed (button characteristic discovery in this case).
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
         {
           // Set up characteristic notification for indications.
           sc = sl_bt_gatt_set_characteristic_notification(ble_data_ptr->connection_handle,
                                                           ble_data_ptr->characteristic_handle,
+                                                          sl_bt_gatt_indication);
+          if(sc != SL_STATUS_OK) {
+              LOG_ERROR("sl_bt_gatt_set_characteristic_notification() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
+          }
+          nextState = SET_BUTTON_INDICATIONS;
+        }
+      break;
+
+    case SET_BUTTON_INDICATIONS:
+      nextState = SET_BUTTON_INDICATIONS; //default state
+      // Check if a GATT procedure has been completed (send htm indications).
+      if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
+        {
+          // Set up characteristic notification for indications.
+          sc = sl_bt_gatt_set_characteristic_notification(ble_data_ptr->connection_handle,
+                                                          ble_data_ptr->button_characteristic_handle,
                                                           sl_bt_gatt_indication);
           if(sc != SL_STATUS_OK) {
               LOG_ERROR("sl_bt_gatt_set_characteristic_notification() returned != 0 status=0x%04x\n\r", (unsigned int) sc);

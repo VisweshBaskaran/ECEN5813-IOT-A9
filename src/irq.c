@@ -79,7 +79,6 @@ void GPIO_EVEN_IRQHandler(void)
   //flag = GPIO_IntGet();
   flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
 
-  //DOS - why did you not use GPIO_IntGetEnabled like we did in LETIMER0_IRQHandler()???
   //flag = GPIO_IntGet();
   // DOS bit[6] is PB0 and bit[7] is PB1
   flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
@@ -92,17 +91,58 @@ void GPIO_EVEN_IRQHandler(void)
     {
       if (button_state)
         {
-          ble_data_ptr->button_pressed = false; // DOS not released
+          ble_data_ptr->PB0_pressed = false; // DOS not released
           schedulerSetEventPB0Released();
         }
       else
         {
-          ble_data_ptr->button_pressed = true; // DOS is pressed
+          ble_data_ptr->PB0_pressed = true; // DOS is pressed
           schedulerSetEventPB0Pressed();
         }
     }
 }
-/*
+
+
+/**
+ * @brief GPIO Odd Interrupt Handler: It handles button press and release events for PB1.
+ *
+ * @param none
+ *
+ * @returns none
+ */
+void GPIO_ODD_IRQHandler(void)
+{
+  uint32_t flag;
+  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+
+  // DOS bit[6] is PB0 and bit[7] is PB1
+  flag = GPIO_IntGetEnabled() & 0xAAAAAAAA; // mask off even numbered bits 0,2,4...
+
+  GPIO_IntClear(flag);
+
+  uint8_t button_state = GPIO_PinInGet(PB1_port, PB1_pin); // DOS 0=pressed, 1=released
+
+  if (flag & (1 << PB1_pin))
+    {
+      if (button_state)
+        {
+          CORE_DECLARE_IRQ_STATE;
+          CORE_ENTER_CRITICAL();
+          ble_data_ptr->PB1_pressed = false; // DOS not released
+          CORE_EXIT_CRITICAL();
+          schedulerSetEventPB1Released();
+        }
+      else
+        {
+          CORE_DECLARE_IRQ_STATE;
+          CORE_ENTER_CRITICAL();
+          ble_data_ptr->PB1_pressed = true; // DOS is pressed
+          CORE_EXIT_CRITICAL();
+          schedulerSetEventPB1Pressed();
+        }
+    }
+}
+/**
  * @brief Calculates the time in milliseconds using a LETIMER peripheral
  *
  * @param none
