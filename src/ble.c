@@ -19,7 +19,7 @@
 //#define LOG_CONNECTION_PARAMETERS 1
 
 //Variables required
-ble_data_struct_t ble_data_ptr; // DOS this isn't a pointer to the data, its the actual data !!!
+ble_data_struct_t ble_data; // DOS this isn't a pointer to the data, its the actual data !!!
 queue_struct_t indication_queue;
 uint8_t button_state[2];
 
@@ -139,7 +139,7 @@ uint32_t get_queue_depth (void)
  */
 ble_data_struct_t* get_ble_data_ptr (void)
 {
-  return &ble_data_ptr;
+  return &ble_data;
 }
 
 /**
@@ -368,21 +368,15 @@ void handle_ble_event (sl_bt_msg_t *evt)
       if (evt->data.evt_system_external_signal.extsignals == evtPB0_pressed && ble_data_ptr->PB0_pressed)
         {
           //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop\n\r");
-          if (ble_data_ptr->connection_open == true)
-            {
-              displayPrintf (DISPLAY_ROW_9, "Button Pressed");
-            }
           //Security:
-          if ((ble_data_ptr->bonding_flag == false)
+          if (ble_data_ptr->connection_open == true && (ble_data_ptr->bonding_flag == false)
               && (ble_data_ptr->passkey_available == true))
             {
               //Accept or reject the reported passkey confirm value.
               sl_bt_sm_passkey_confirm (ble_data_ptr->connection_handle, 1); //Creating bond after confirming passkey
               ble_data_ptr->passkey_available = false;
             }
-          //else if (ble_data_ptr->bonding_flag == true) //SHOULD THIS CONDITION BE REMOVED?
-          //{
-          //Update gatt db
+          displayPrintf (DISPLAY_ROW_9, "Button Pressed");
           button_state[0] = 0; //Flag
           button_state[1] = 1;
           //Update gatt database with button state value
@@ -393,47 +387,48 @@ void handle_ble_event (sl_bt_msg_t *evt)
               LOG_ERROR(
                   "sl_bt_gatt_server_write_attribute_value() returned != 0 status=0x%04x", (unsigned int)sc);
             }
-
-          //Button indications
-          if(ble_data_ptr->ok_to_send_PB0_indications == true && ble_data_ptr->connection_open == true)
-            {
-              if(ble_data_ptr->indication_inflight == false) //No indication inflight, indication can be sent
+          //else if (ble_data_ptr->bonding_flag == true) //SHOULD THIS CONDITION BE REMOVED?
+            //{
+              //Button indications
+              if(ble_data_ptr->ok_to_send_PB0_indications == true && ble_data_ptr->connection_open == true)
                 {
-                  //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, sending indications\n\r");
-                  sc = sl_bt_gatt_server_send_indication (
-                      ble_data_ptr->connection_handle, gattdb_button_state,
-                      sizeof(button_state), &button_state[0]);
-                  if (sc != SL_STATUS_OK)
+                  if(ble_data_ptr->indication_inflight == false) //No indication inflight, indication can be sent
                     {
-                      LOG_ERROR(
-                          "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x", (unsigned int)sc);
+                      //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, sending indications\n\r");
+                      sc = sl_bt_gatt_server_send_indication (
+                          ble_data_ptr->connection_handle, gattdb_button_state,
+                          sizeof(button_state), &button_state[0]);
+                      if (sc != SL_STATUS_OK)
+                        {
+                          LOG_ERROR(
+                              "sl_bt_gatt_server_send_indication() returned != 0 status=0x%04x", (unsigned int)sc);
+                        }
+                      else
+                        {
+                          ble_data_ptr->indication_inflight = true;
+                        }
                     }
                   else
                     {
-                      ble_data_ptr->indication_inflight = true;
+                      //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, queuing indications\n\r");
+                      if (write_queue (gattdb_button_state, 2,
+                                       &button_state[0]) == WRITE_FAILURE) //Indication is inflight, indication can not be sent, therefore queued to indication queue
+                        LOG_ERROR("write_queue() returned != 0 status=0x%04x", (unsigned int) sc);
                     }
                 }
-              else
-                {
-                  //LOG_INFO("In sl_bt_evt_system_external_signal_id, button pressed if loop, queuing indications\n\r");
-                  if (write_queue (gattdb_button_state, 2,
-                                   &button_state[0]) == WRITE_FAILURE) //Indication is inflight, indication can not be sent, therefore queued to indication queue
-                    LOG_ERROR("write_queue() returned != 0 status=0x%04x", (unsigned int) sc);
-                }
-            }
-          //}
+            //}
 
         }
 
       if (evt->data.evt_system_external_signal.extsignals == evtPB0_released && ble_data_ptr->PB0_pressed == false)
         {
           //LOG_INFO("In sl_bt_evt_system_external_signal_id, button released if loop\n\r");
-          if (ble_data_ptr->connection_open == true)
-            {
+          //if (ble_data_ptr->connection_open == true)
+            //{
               displayPrintf (DISPLAY_ROW_9, "Button Released");
-              displayPrintf (DISPLAY_ROW_PASSKEY, "");
-              displayPrintf (DISPLAY_ROW_ACTION, "");
-            }
+              //displayPrintf (DISPLAY_ROW_PASSKEY, "");
+              //displayPrintf (DISPLAY_ROW_ACTION, "");
+            //}
           button_state[0] = 0;
           button_state[1] = 0;
           sc = sl_bt_gatt_server_write_attribute_value (
@@ -490,7 +485,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
           size_t buffer_length = 2;
           if (READ_FAILURE
               == read_queue (&ble_data_ptr->characteristic_handle, &buffer_length,
-                             &button_state[2]))
+                             &button_state[0]))
             {
               LOG_ERROR("read_queue() returned != 0 status=0x%04x", (unsigned int) sc);
             }
@@ -608,7 +603,7 @@ void handle_ble_event (sl_bt_msg_t *evt)
                 {
                   //LOG_INFO("sl_bt_evt_gatt_server_characteristic_status_id, button_state characteristic, ok to send pb0 indications false\n\r");
                   ble_data_ptr->ok_to_send_PB0_indications = false;
-                  displayPrintf (DISPLAY_ROW_9, "");
+                  //displayPrintf (DISPLAY_ROW_9, "");
                   gpioLed1SetOff ();
                 }
             }
