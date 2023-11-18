@@ -149,6 +149,24 @@ When used with the Measurement Interval characteristic, the Valid Range descript
         <read authenticated="false" bonded="true" encrypted="false"/>
         <indicate authenticated="false" bonded="true" encrypted="false"/>
       </properties>
+
+      <!--Client Characteristic Configuration-->
+      <descriptor const="false" discoverable="true" id="_ecen5823_encrypted_button_state__client_characteristic_configuration_0" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
+        <informativeText>Abstract: 
+        The Client Characteristic Configuration descriptor defines how the characteristic may be configured by a specific client.            
+		
+Summary: 
+        This descriptor shall be persistent across connections for bonded devices.
+        The Client Characteristic Configuration descriptor is unique for each client. A client may read and write this descriptor to determine and set the configuration for that client.
+        Authentication and authorization may be required by the server to write this descriptor.
+        The default value for the Client Characteristic Configuration descriptor is 0x00. Upon connection of non-binded clients, this descriptor is set to the default value.
+		</informativeText>
+        <properties>
+          <read authenticated="false" bonded="false" encrypted="false"/>
+          <write authenticated="false" bonded="false" encrypted="false"/>
+        </properties>
+        <value length="2" type="hex" variable_length="false"/>
+      </descriptor>
     </characteristic>
   </service>
 </gatt>

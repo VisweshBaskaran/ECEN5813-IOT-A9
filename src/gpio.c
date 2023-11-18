@@ -50,22 +50,35 @@ void gpioInit()
   // Set the port's drive strength. In this MCU implementation, all GPIO cells
   // in a "Port" share the same drive strength setting.
   GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
+
   // Set the GPIO mode of operation
   GPIO_PinModeSet(LED_port, LED0_pin, gpioModePushPull, false);
 
-  GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
+  //DOS GPIO_DriveStrengthSet(LED_port, gpioDriveStrengthWeakAlternateWeak); // Weak, 1mA
   // Set the GPIO mode of operation
   GPIO_PinModeSet(LED_port, LED1_pin, gpioModePushPull, false);
+
 
   GPIO_DriveStrengthSet(SI7021_port, gpioDriveStrengthWeakAlternateWeak);
   // Set the sensor mode of operation
   GPIO_PinModeSet(SI7021_port, SI7021_pin, gpioModePushPull, false);
 
-  GPIO_PinModeSet(PB0_port, PB0_pin, gpioModeInputPullFilter, true);
+
+  // DOS GPIO interrupts are enabled for the duration of execution, but first disable and clear
+  // any spurious IRQs that may be hanging around.
+  GPIO_IntDisable (0xFFFFFFFF);  // disable GPIO IRQs
+  GPIO_IntClear   (0xFFFFFFFF);  // clear any previous, spurious IRQs
+
+  //DOS GPIO_PinModeSet(PB0_port, PB0_pin, gpioModeInputPullFilter, true);
+  GPIO_PinModeSet(PB0_port, PB0_pin, gpioModeInput, true); // DOS
   GPIO_ExtIntConfig (PB0_port, PB0_pin, PB0_pin, true, true, true);
 
-  GPIO_PinModeSet(PB1_port, PB1_pin, gpioModeInputPullFilter, true);
-  GPIO_ExtIntConfig (PB1_port, PB1_pin, PB1_pin, true, true, true);
+  //DOS GPIO_PinModeSet(PB1_port, PB1_pin, gpioModeInputPullFilter, true);
+  GPIO_PinModeSet(PB1_port, PB1_pin, gpioModeInput, true);
+  GPIO_ExtIntConfig (PB1_port, PB1_pin, PB1_pin, true, true, true); // DOS
+
+
+
 } // gpioInit()
 
 

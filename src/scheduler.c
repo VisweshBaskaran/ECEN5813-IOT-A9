@@ -10,9 +10,14 @@
  *    [1] ECEN5823 IOT Embedded Firmware lecture slides
  *    [2] Health Thermometer Characteristic and Descriptor descriptions: https://www.bluetooth.com/specifications/assigned-numbers/
  */
-//#define INCLUDE_LOG_DEBUG 1
-#include "src/log.h"
+
 #include "src/scheduler.h"
+
+
+#define INCLUDE_LOG_DEBUG 1
+#include "src/log.h"
+
+
 typedef enum
 {
   IDLE,
@@ -310,16 +315,22 @@ void temperature_state_machine(sl_bt_msg_t *evt)
  */
 void discovery_state_machine(sl_bt_msg_t *evt)
 {
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
-  Client_State_t currentState;
-  static Client_State_t nextState = IDLE_CLIENT;
-  currentState = nextState;
+  ble_data_struct_t *ble_data_ptr     = get_ble_data_ptr();
+
+         Client_State_t currentState;
+  static Client_State_t nextState     = IDLE_CLIENT;
+
   sl_status_t sc = SL_STATUS_OK;
+
+
+  currentState = nextState;
+
   switch(currentState)
   {
     case IDLE_CLIENT:
-      ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection;
+      //DOS - No this was done in open_id event!!! ble_data_ptr->connection_handle = evt->data.evt_connection_opened.connection;
       nextState = IDLE_CLIENT;  //default state
+
       // Check if a connection has been opened.
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_opened_id)
         {
@@ -334,6 +345,7 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           nextState = DISCOVER_BUTTON_SERVICE;
         }
       break;
+
     case DISCOVER_BUTTON_SERVICE:
       nextState = DISCOVER_BUTTON_SERVICE;  //default state
 
@@ -361,7 +373,7 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           uint8_t CharacteristicUUID[2] = {0x1c, 0x2a}; //[2]
           // Discover characteristics for health thermometer UUID within the previously discovered service.
           sc = sl_bt_gatt_discover_characteristics_by_uuid(ble_data_ptr->connection_handle,
-                                                           ble_data_ptr->service_handle,
+                                                           ble_data_ptr->htm_service_handle,
                                                            sizeof(CharacteristicUUID),
                                                            (const uint8_t*)CharacteristicUUID);
           if(sc != SL_STATUS_OK) {
@@ -390,15 +402,17 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           nextState = CHARACTERISTICS_DISCOVERED;
         }
       break;
+
     case CHARACTERISTICS_DISCOVERED:
       nextState = CHARACTERISTICS_DISCOVERED;  //default state
       // Check if a GATT procedure has been completed (button characteristic discovery in this case).
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
         {
-          // Set up characteristic notification for indications.
+          // Enable indications for HTM char.
+          //LOG_INFO("Enabling HTM indications");
           sc = sl_bt_gatt_set_characteristic_notification(ble_data_ptr->connection_handle,
-                                                          ble_data_ptr->characteristic_handle,
-                                                          sl_bt_gatt_indication);
+                                                          ble_data_ptr->htm_characteristic_handle,
+                                                          sl_bt_gatt_indication); // sl_bt_gatt_disable sl_bt_gatt_indication
           if(sc != SL_STATUS_OK) {
               LOG_ERROR("sl_bt_gatt_set_characteristic_notification() returned != 0 status=0x%04x\n\r", (unsigned int) sc);
           }
@@ -411,7 +425,8 @@ void discovery_state_machine(sl_bt_msg_t *evt)
       // Check if a GATT procedure has been completed (send htm indications).
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id)
         {
-          // Set up characteristic notification for indications.
+          // Enable indications for button_state char.
+          //LOG_INFO("Enabling BTN indications");
           sc = sl_bt_gatt_set_characteristic_notification(ble_data_ptr->connection_handle,
                                                           ble_data_ptr->button_characteristic_handle,
                                                           sl_bt_gatt_indication);
@@ -421,6 +436,7 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           nextState = INDICATION_ENABLED;
         }
       break;
+
     case INDICATION_ENABLED:
       nextState = INDICATION_ENABLED;  //default state
       // Check if a GATT procedure has been completed (indication setup in this case).
@@ -430,14 +446,18 @@ void discovery_state_machine(sl_bt_msg_t *evt)
           displayPrintf(DISPLAY_ROW_CONNECTION, "Handling indications");
         }
       break;
+
     case WAIT_FOR_CLOSE:
       nextState = WAIT_FOR_CLOSE; //default state
       // Check if the connection has been closed.
       if(SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_closed_id)
         nextState = IDLE_CLIENT;
       break;
-  }
-}
+
+  } // switch
+
+} // discovery_state_machine()
+
 #endif
 
 

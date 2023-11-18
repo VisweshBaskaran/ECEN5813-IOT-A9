@@ -7,7 +7,7 @@ category: Bluetooth Examples
 package: Bluetooth
 quality: production
 readme:
-- {path: ../../../../../Applications/Simplicity Studio.app/Contents/Eclipse/developer/sdks/gecko_sdk_suite/v3.2/app/bluetooth/documentation/example/soc_empty/readme.html}
+- {path: ../../../../Applications/Simplicity Studio.app/Contents/Eclipse/developer/sdks/gecko_sdk_suite/v3.2/app/bluetooth/documentation/example/soc_empty/readme.html}
 source:
 - {path: main.c}
 - {path: app.c}
@@ -38,10 +38,10 @@ component:
 - instance: [vcom]
   id: iostream_usart
 - {id: bluetooth_feature_system}
-- {id: bluetooth_feature_scanner}
-- {id: emlib_letimer}
 - instance: [sensor]
   id: i2cspm
+- {id: emlib_letimer}
+- {id: bluetooth_feature_scanner}
 - {id: component_catalog}
 - {id: ota_dfu}
 - {id: bootloader_interface}

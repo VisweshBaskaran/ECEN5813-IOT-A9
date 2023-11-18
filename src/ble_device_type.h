@@ -32,7 +32,7 @@
  * Set to 1 to configure this build as a BLE server.
  * Set to 0 to configure as a BLE client
  */
-#define DEVICE_IS_BLE_SERVER 0
+#define DEVICE_IS_BLE_SERVER 1
 
 // Students:
 // For your Bluetooth Client implementations, starting with A7,
@@ -40,11 +40,12 @@
 // These values are from one of my Geckos, to serve as an example for you:
 //                   bd_addr  [0]   [1]   [2]   [3]   [4]   [5] <- array indices
 //#define SERVER_BT_ADDRESS {{ 0x31, 0x3b, 0x38, 0x81, 0xf6, 0x8c }}
-#define SERVER_BT_ADDRESS {{ 0xe1,0x7e,0xa9,0x9f,0xfd,0x90 }}
-
+#define SERVER_BT_ADDRESS {{ 0xe1,0x7e,0xa9,0x9f, 0xfd,0x90 }}
 // This also can work:
 //#define SERVER_BT_ADDRESS (bd_addr) { .addr = { x31, 0x3b, 0x38, 0x81, 0xf6, 0x8c } }
 
+// Instructor's Server
+///#define SERVER_BT_ADDRESS {{ 0xb0, 0x2e, 0xef, 0x57, 0x0b, 0x00 }}
 
 
 #if DEVICE_IS_BLE_SERVER

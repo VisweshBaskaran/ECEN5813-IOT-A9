@@ -15,13 +15,13 @@
 #include "em_core.h"
 #include "app.h"
 enum {
-  evtLETIMER0_UF = 0b01,
-  evtLETIMER0_COMP1 = 0b10,
-  evtI2C_Transfer_Complete = 0b100,
-  evtPB0_pressed = 0b1000,
-  evtPB0_released = 0b10000,
-  evtPB1_pressed = 0b100000,
-  evtPB1_released = 0b1000000
+  evtLETIMER0_UF           = 0b0000001,
+  evtLETIMER0_COMP1        = 0b0000010,
+  evtI2C_Transfer_Complete = 0b0000100,
+  evtPB0_pressed           = 0b0001000,
+  evtPB0_released          = 0b0010000,
+  evtPB1_pressed           = 0b0100000,
+  evtPB1_released          = 0b1000000
 };
 
 #define CLEAR_EVENT 0

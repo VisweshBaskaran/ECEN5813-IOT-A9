@@ -63,17 +63,19 @@ typedef struct
   bool passkey_available;
   bool ok_to_send_PB0_indications;
   bool bonding_flag;
-  bool PB0_pressed;
+//DOS  bool PB0_pressed;
   uint32_t passkey;
-  bool PB1_pressed;
+//DOS  bool PB1_pressed;
   // values unique for client
-  uint32_t temp_char_value; //for storing characteristic value return
-  uint32_t service_handle;
-  uint16_t characteristic_handle;
+  //DOS - don't you think a signed variable would be better? What if the temp when negative?????
+  //DOS uint32_t temp_char_value; //for storing characteristic value return
+  int32_t temp_char_value; //for storing characteristic value return
+
+  uint32_t htm_service_handle;
+  uint16_t htm_characteristic_handle;
   uint32_t button_service_handle;
   uint16_t button_characteristic_handle;
 
-  bool gatt_procedure_complete;
 }ble_data_struct_t;
 
 //Function macros

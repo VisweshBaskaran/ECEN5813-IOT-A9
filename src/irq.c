@@ -75,31 +75,38 @@ void I2C0_IRQHandler(void)
 void GPIO_EVEN_IRQHandler(void)
 {
   uint32_t flag;
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  //DOS ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
   //flag = GPIO_IntGet();
   flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
+
+  //LOG_INFO("EvenFlag=%x", flag);
 
   //flag = GPIO_IntGet();
   // DOS bit[6] is PB0 and bit[7] is PB1
-  flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
+  ///flag = GPIO_IntGetEnabled() & 0x55555555; // mask off odd numbered bits 1,3,5... leaving 0,2,4...
 
   GPIO_IntClear(flag);
 
-  uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin); // DOS 0=pressed, 1=released
+  //DOS uint8_t button_state = GPIO_PinInGet(PB0_port, PB0_pin); // DOS 0=pressed, 1=released
+  uint32_t button_state = GPIO_PinInGet(PB0_port, PB0_pin); // DOS 0=pressed, 1=released
 
-  if (flag & (1 << PB0_pin))
-    {
+  //LOG_INFO("EBS=%x", button_state);
+
+//  if (flag & (1 << PB0_pin))
+//    {
       if (button_state)
         {
-          ble_data_ptr->PB0_pressed = false; // DOS not released
+          //DOS ble_data_ptr->PB0_pressed = false; // DOS not pressed
           schedulerSetEventPB0Released();
+          //LOG_INFO("PB0 release");
         }
       else
         {
-          ble_data_ptr->PB0_pressed = true; // DOS is pressed
+          //DOS ble_data_ptr->PB0_pressed = true; // DOS is pressed
           schedulerSetEventPB0Pressed();
+          //LOG_INFO("PB0 pressed");
         }
-    }
+//    }
 }
 
 
@@ -113,35 +120,37 @@ void GPIO_EVEN_IRQHandler(void)
 void GPIO_ODD_IRQHandler(void)
 {
   uint32_t flag;
-  ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
+  //DOS ble_data_struct_t *ble_data_ptr = get_ble_data_ptr();
 
   // DOS bit[6] is PB0 and bit[7] is PB1
   flag = GPIO_IntGetEnabled() & 0xAAAAAAAA; // mask off even numbered bits 0,2,4...
 
+  //LOG_INFO("OddFlag=%x", flag);
+
   GPIO_IntClear(flag);
 
-  uint8_t button_state = GPIO_PinInGet(PB1_port, PB1_pin); // DOS 0=pressed, 1=released
+  uint32_t button_state = GPIO_PinInGet(PB1_port, PB1_pin); // DOS 0=pressed, 1=released
+
+  //LOG_INFO("OBS=%x", button_state);
 
   if (flag & (1 << PB1_pin))
     {
       if (button_state)
         {
-          CORE_DECLARE_IRQ_STATE;
-          CORE_ENTER_CRITICAL();
-          ble_data_ptr->PB1_pressed = false; // DOS not released
-          CORE_EXIT_CRITICAL();
+          //DOS ble_data_ptr->PB1_pressed = false; // DOS not pressed
           schedulerSetEventPB1Released();
+          //LOG_INFO("PB1 release");
         }
       else
         {
-          CORE_DECLARE_IRQ_STATE;
-          CORE_ENTER_CRITICAL();
-          ble_data_ptr->PB1_pressed = true; // DOS is pressed
-          CORE_EXIT_CRITICAL();
+          //DOS ble_data_ptr->PB1_pressed = true; // DOS is pressed
           schedulerSetEventPB1Pressed();
+          //LOG_INFO("PB1 pressed");
         }
     }
 }
+
+
 /**
  * @brief Calculates the time in milliseconds using a LETIMER peripheral
  *
